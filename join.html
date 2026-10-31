@@ -715,7 +715,7 @@
 				<div class="landing">
 					<span class="eyebrow">Guest entrance</span>
 					<h1>Welcome to the <em>FULLPORTMATT</em> Studio</h1>
-					<p class="lede">You are about to join <strong>Matt's show</strong>. Have a great time!</p>
+					<p class="lede">You're about to join <strong>Matt's show</strong>. Have a great time!</p>
 					<button id="continueBtn" class="btn btn--primary" type="button">Continue</button>
 					<p class="landing__fine">Next, your browser will ask for camera and microphone access.</p>
 				</div>
@@ -838,6 +838,9 @@
 				guestId = guestId.trim().replace(/[\W]+/g, "_");
 				roomName = roomName.trim().replace(/[\W]+/g, "_");
 
+				// Invite-link params this page consumes or sets itself; all others pass through to the studio URL.
+				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo"];
+
 				// --- State -----------------------------------------------------------------
 				var stream = null; // live MediaStream shown in the preview
 				var audioCtx = null;
@@ -878,15 +881,15 @@
 
 				// The studio normalizes &videodevice / &audiodevice with normalizeDeviceLabel()
 				// (non-word characters -> "_", lowercased) and then matches labels first and
-				// exact deviceId second. Chrome deviceIds are plain hex, so they survive that
-				// normalization and give an exact match. Browsers whose ids contain "+", "/"
-				// or "=" (Firefox, Safari) would be mangled, so for those we send the
+				// exact deviceId second. Chrome deviceIds are lowercase hex, so they survive that
+				// normalization and give an exact match. Browsers whose ids contain "+", "/",
+				// "=" or capitals (Firefox, Safari) would be mangled, so for those we send the
 				// normalized label instead, which the studio matches with startsWith/includes.
 				function deviceParamValue(device) {
 					if (!device) {
 						return "";
 					}
-					if (device.deviceId && /^\w+$/.test(device.deviceId)) {
+					if (device.deviceId && /^[a-z0-9_]+$/.test(device.deviceId)) {
 						return device.deviceId;
 					}
 					if (device.label) {
@@ -1366,6 +1369,17 @@
 					parts.push("quality=0");
 					parts.push("darkmode");
 					parts.push("hidesolo");
+					// Anything else on the invite link (e.g. &password=, &bitrate=) passes through untouched.
+					params.forEach(function (value, key) {
+						if (PASSTHROUGH_EXCLUDE.indexOf(key) !== -1) {
+							return;
+						}
+						if (value === "") {
+							parts.push(encodeURIComponent(key));
+						} else {
+							parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+						}
+					});
 					return "./?" + parts.join("&");
 				};
 
@@ -1443,12 +1457,18 @@
 					stopTracks(stream);
 				});
 
-				try {
-					var saved = localStorage.getItem("fpmGuestName");
-					if (saved) {
-						$("nameInput").value = saved;
-					}
-				} catch (e) {}
+				// Name: a value on the invite link (&name= / &label=) wins, else the last name used on this device.
+				var presetName = params.get("name") || params.get("label") || params.get("l") || "";
+				if (presetName) {
+					$("nameInput").value = presetName.replace(/_/g, " ").slice(0, 60);
+				} else {
+					try {
+						var saved = localStorage.getItem("fpmGuestName");
+						if (saved) {
+							$("nameInput").value = saved;
+						}
+					} catch (e) {}
+				}
 
 				if (!guestId || !roomName) {
 					log("missing id/room in invite link");

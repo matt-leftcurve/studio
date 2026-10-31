@@ -27,6 +27,15 @@ https://matt-leftcurve.github.io/studio/join.html?id=<guestID>&room=fpmshow
   sanitized values the page shows in the console are exactly what the app will
   use. A link missing either value shows a "This invite link is incomplete"
   screen instead of a broken join.
+- Optional `&name=<Guest_Name>` (or `&label=`) pre-fills the name field
+  (underscores become spaces); otherwise the last name used on that device is
+  offered.
+- **Any other parameter on the invite link is passed through unchanged** to the
+  studio URL (for example `&password=…`, `&bitrate=…`, `&proaudio`). Only the
+  params the page consumes or sets itself (`id`, `push`, `room`, `name`,
+  `label`, `l`, `videodevice`, `audiodevice`, `sink`, `aec`, `denoise`,
+  `autogain`, `webcam`, `hiddenrecord`, `autostart`, `quality`, `q`,
+  `darkmode`, `hidesolo`) are not forwarded.
 
 ## Flow
 
@@ -66,6 +75,7 @@ returning guest only has to confirm it.
    &label=<encodeURIComponent(name)>
    [&aec&denoise&autogain]          ← only when "Using headphones?" = No
    &quality=0&darkmode&hidesolo     ← in-room polish, see below
+   [&<any other invite-link params, unchanged>]
 ```
 
 `window.fpmBuildJoinURL()` returns the URL the Join button will use (handy in
@@ -84,10 +94,10 @@ lowercase); the audio value is additionally `split(",")` into an array.
   `includes(normalizeDeviceLabel(label))` → then label `includes` per entry.
 
 So **both** work, but a deviceId only survives the normalization if it is made of
-word characters. Chrome/Edge deviceIds are 64-char hex, so the page sends the
-**deviceId** there (unambiguous, exact match). Firefox/Safari ids contain
-`+ / =` and would be mangled, so for any id failing `/^\w+$/` the page sends
-the **normalized label** instead (`label.replace(/[\W]+/g,"_").toLowerCase()`),
+lowercase word characters. Chrome/Edge deviceIds are 64-char lowercase hex, so
+the page sends the **deviceId** there (unambiguous, exact match). Firefox/Safari
+ids contain `+ / =` and capitals and would be mangled, so for any id failing
+`/^[a-z0-9_]+$/` the page sends the **normalized label** instead (`label.replace(/[\W]+/g,"_").toLowerCase()`),
 which matches the app's `startsWith`/`includes` passes. When the browser's
 "default" microphone entry is chosen the value is literally `default`, which
 `main.js` maps to `session.audioDevice = 1` (system default). Note that any
@@ -152,10 +162,31 @@ live room (needs a real director session). Syntax: inline script passes
 `node --check`; no `?.`, `??`, `aspect-ratio`, `inset` or newer APIs are used
 (16:9 box uses a padding-top fallback). `backdrop-filter` is progressive.
 
-Repo state caveat: `join.html` is fully self-contained. Any `join.css`,
-`join.js` or `fpm-guestbar.*` files present in the checkout come from a
-separate, concurrent attempt at this feature and are **not** referenced by this
-`join.html` nor part of this commit; the deployed page needs only `join.html`.
+Repo state: `join.html` is fully self-contained; the deployed page needs only
+`join.html`. (A concurrent attempt at this feature briefly produced unreferenced
+`join.css` / `join.js` files in the checkout; they were removed before commit.)
+`fpm-guestbar.*` belong to the in-room control bar work in section C.
+
+### Second verification pass (2026-10-31, independent CDP harness)
+
+A second headless run (Google Chrome 138, same fake-media flags, harness kept
+outside the repo) re-checked the committed page after the passthrough / name
+prefill / deviceId-regex follow-up: landing copy, Continue → device screen,
+`cameras=1 mics=3 speakers=3`, preview `videoWidth` 1920×1080 with chip
+`1080p`, CSS mirror transform, meter width changing over 10 samples
+(0 → 94 %), test tone click without exceptions, no horizontal overflow at
+1366×860 or 390×844, Join navigation intercepted via `Fetch.fulfillRequest`.
+Constructed URL for link `join.html?id=TESTGUEST&room=fpmshow&name=Test_Guest&extra=1&flag`:
+
+```
+./?push=TESTGUEST&room=fpmshow&webcam&hiddenrecord&autostart
+  &videodevice=<64-hex>&audiodevice=default&label=Test%20Guest
+  &aec&denoise&autogain&quality=0&darkmode&hidesolo&extra=1&flag
+```
+
+With "Using headphones?" = Yes the same URL is produced without
+`&aec&denoise&autogain`. `name`, `id` and `room` are not forwarded as-is;
+`extra=1` and the bare `flag` are.
 
 ---
 
