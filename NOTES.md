@@ -1,9 +1,10 @@
 # FULLPORTMATT guest studio notes
 
-Two fork-specific pieces live here:
+Three fork-specific pieces live here:
 
 1. **Branded guest join flow** (`join.html`) — section A below.
 2. **Hidden guest-side recording** (`&hiddenrecord`) — section B below.
+3. **Guest control bar polish** (`fpm-guestbar.css` / `fpm-guestbar.js`) — section C below.
 
 ---
 
@@ -563,3 +564,87 @@ needed for the end-to-end Drive check.
 </body>
 </html>
 ```
+
+---
+
+# C. Guest control bar polish (`fpm-guestbar.css`, `fpm-guestbar.js`)
+
+Branch: `deploy`. Scope: the bottom control bar guests see in the room page
+(`index.html`). Director and OBS/scene views are untouched.
+
+## What changed
+
+Files: `fpm-guestbar.css` (new), `fpm-guestbar.js` (new), `index.html` (two
+include lines: the stylesheet after `main.css`, the script after `main.js`).
+`lib.js`, `main.js`, `webrtc.js` and `main.css` are **not** modified.
+
+- **Scoping.** `fpm-guestbar.js` reads the URL once. If any of `director`,
+  `dir`, `scene`, `scn`, `cleanoutput`, `clean` or `cleanviewer` is present it
+  returns immediately and nothing changes. Otherwise it adds `fpm-guest` to
+  `<body>`; every rule in `fpm-guestbar.css` is prefixed with `body.fpm-guest`,
+  so the stock bar is what the director and every OBS scene link still get.
+- **Markup is unchanged.** The existing `#controlButtons > .controlPositioning >
+  #subControlButtons > div.float` buttons are restyled: dark `#0a161e` glass
+  bar with a gold `rgba(201,161,95)` hairline, icon-over-label buttons, gold
+  uppercase labels. Labels and tooltips are CSS pseudo-elements driven by two
+  data attributes the script sets (`data-fpm-label`, `data-fpm-tip`), so no DOM
+  nodes are inserted and the code in `lib.js` that does `className = "float"`
+  or toggles `hidden` keeps working.
+- **Labels.** Audio (`#mutebutton`), Video (`#mutevideobutton`), Leave
+  (`#hangupbutton`), Share (`#screensharebutton` and the 2/3 variants), Chat,
+  Speaker, Settings, Files, Website, Raise hand, Fullscreen, Pop out, Flip,
+  Record, Queue, Black out, Monitor. `&webcam` guests do not get the Share
+  button (`session.screensharebutton = false`, `main.js:1993`); it is styled
+  for links that do show it.
+- **State-aware tooltips.** The script derives the tooltip from the state the
+  core code already writes: `toggleMute()` adds/removes the `red` class on
+  `#mutebutton` (`lib.js:20524`), `toggleVideoMute()` does the same on
+  `#mutevideobutton` (`lib.js:21717`), `toggleSpeakerMute()` on
+  `#mutespeakerbutton`.
+  - Audio: **"Mute mic"** while live, **"Unmute mic"** while muted.
+  - Video: **"Turn off camera"** while live, **"Turn on camera"** while off.
+  - Speaker: "Mute speaker" / "Unmute speaker". Leave: "Leave the studio".
+  - Raise hand follows `data-raised`. Other buttons fall back to their stock
+    `title` text minus the keyboard-shortcut suffix.
+  A `MutationObserver` on `#subControlButtons` (attributes `class`, `title`,
+  `aria-label`, `data-raised`; plus `childList`) re-applies after every toggle,
+  after the translation pass re-writes titles (`lib.js:10667`), and after
+  `translateAccessibleLabels()` resets `aria-label`. Each write is guarded by an
+  equality check so the observer cannot loop.
+- **Native vs custom tooltip.** The custom tooltip replaces the browser's
+  `title` bubble, so the script blanks `title` on the buttons it manages
+  (keeping the original in `data-fpm-orig-title`) and writes the same text to
+  `aria-label`. The translation code skips elements whose `title` is empty.
+  Tooltips also show on `:focus-visible` for keyboard users and are hidden
+  under `@media (hover: none)` (touch devices).
+- **Leave** is tinted red at rest (`rgba(168,40,40,.9)`, brighter on hover).
+  Muted/camera-off keep the stock `red` class, re-toned to `#7d1d1d`.
+- **Responsive.** Below 640 px the buttons shrink and labels drop to 9 px.
+- **Language.** Labels/tooltips are English strings in `fpm-guestbar.js`; this
+  is a fork-only guest skin, so they are not routed through the translation
+  catalog (the stock titles remain available in `data-fpm-orig-title`).
+
+## Test results (2026-10-31, headless Google Chrome, fake media)
+
+Static server in the checkout, Chrome `--headless=new
+--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`, driven over
+CDP from `/tmp` (nothing added to the repo). Room name randomised per run; the
+stock `webrtc.js` connected to the configured signaling as a normal guest.
+
+| check | result |
+| --- | --- |
+| `./?push=…&room=…&webcam&hiddenrecord&autostart&videodevice=…&audiodevice=…&label=…&aec&denoise&autogain` loads, publishes | pass; `body.className` = `main fpm-guest ltr`; no `Runtime.exceptionThrown` |
+| bar visible with labels | Files, Chat, Speaker, Audio, Video, Website, Settings, Leave (Leave red) |
+| tooltips before toggle | Audio "Mute mic", Video "Turn off camera", Leave "Leave the studio" |
+| after `toggleMute(); toggleVideoMute();` | both buttons `red`; tooltips "Unmute mic" / "Turn on camera"; `aria-label` matches |
+| hover (`Input.dispatchMouseEvent`) | `::before` content "Unmute mic", opacity 1 |
+| `./?director=…` | body `main ltr`, no `data-fpm-label` on `#mutebutton` (stock bar) |
+| `./?scene&room=…&cleanoutput` | body `main ltr` (stock) |
+| translation CI | `ci-validateTranslations.js` and `ci-checkTranslationKeys.js` pass |
+
+Note for headless testing: new-headless Chrome matches `(hover: none)`, so the
+tooltip rule is `display: none` there; the rendering was verified by forcing
+`display: block` for the screenshot only. Not tested: a real Chrome 80 runtime
+(the script uses only `URLSearchParams`, `classList`, `MutationObserver`,
+`Object.keys`; no `?.`/`??`), Firefox/Safari, and a live director session
+toggling a guest remotely (that path also ends in the same `red` class).
