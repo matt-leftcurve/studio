@@ -16,6 +16,28 @@
 		
 		</script>
 		<script>
+			// FULLPORTMATT: minimal guest links. "?g=1" / "?g=2" open the branded join flow (join.html)
+			// for that seat before the stock app boots. join.html adds the room defaults (hold,
+			// hiddenrecord, quality). Any other query string falls through to the normal app.
+			(function () {
+				try {
+					var seat = /^\?g=(\d+)$/.exec(window.location.search);
+					if (!seat) {
+						return;
+					}
+					var seats = { "1": "G5EgnZp", "2": "G2FpmQx" };
+					var target = "./join.html?room=fpmshow&seat=" + seat[1];
+					if (seats[seat[1]]) {
+						target += "&id=" + seats[seat[1]];
+					}
+					// An unknown seat number still lands on join.html, which shows its "incomplete link" screen.
+					window.location.replace(target);
+				} catch (e) {
+					console.error(e);
+				}
+			})();
+		</script>
+		<script>
 			if (new URLSearchParams(window.location.search).has('podcast')) {
 				document.write('<style>#directorlayout,#controlButtons{display:none!important}</style>');
 			}
