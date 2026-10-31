@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex" />
+		<title>Join the FULLPORTMATT Studio</title>
+		<link rel="icon" href="./media/favicon.ico" />
+		<style>
+			:root {
+				--ink: #0a161e;
+				--ink-2: #0e1d27;
+				--ink-3: #132632;
+				--line: rgba(201, 161, 95, 0.22);
+				--line-strong: rgba(201, 161, 95, 0.5);
+				--gold: rgba(201, 161, 95, 1);
+				--gold-soft: rgba(201, 161, 95, 0.14);
+				--teal: #7fd4c1;
+				--teal-soft: rgba(127, 212, 193, 0.14);
+				--cream: #f3ead8;
+				--muted: #a9b3b8;
+				--soft: #6f7d85;
+				--danger: #e08a7a;
+				--radius: 14px;
+				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+				--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+				color-scheme: dark;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				margin: 0;
+				min-height: 100%;
+			}
+
+			body {
+				background: var(--ink);
+				background-image: radial-gradient(1200px 600px at 50% -10%, rgba(127, 212, 193, 0.09), transparent 60%), radial-gradient(900px 500px at 100% 100%, rgba(201, 161, 95, 0.08), transparent 55%);
+				color: var(--cream);
+				font-family: var(--sans);
+				font-size: 16px;
+				line-height: 1.5;
+				-webkit-font-smoothing: antialiased;
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
+			}
+
+			button,
+			input,
+			select {
+				font: inherit;
+				color: inherit;
+			}
+
+			.hidden {
+				display: none !important;
+			}
+
+			/* Masthead */
+			.masthead {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 16px;
+				padding: 18px 28px;
+				border-bottom: 1px solid var(--line);
+			}
+
+			.wordmark {
+				display: flex;
+				align-items: baseline;
+				gap: 10px;
+				text-decoration: none;
+				color: inherit;
+			}
+
+			.wordmark__name {
+				font-family: var(--serif);
+				font-weight: 700;
+				font-size: 18px;
+				letter-spacing: 0.22em;
+				color: var(--gold);
+			}
+
+			.wordmark__sub {
+				font-size: 11px;
+				letter-spacing: 0.32em;
+				text-transform: uppercase;
+				color: var(--teal);
+			}
+
+			.masthead__right {
+				font-size: 12px;
+				letter-spacing: 0.18em;
+				text-transform: uppercase;
+				color: var(--soft);
+			}
+
+			.dot {
+				display: inline-block;
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: var(--teal);
+				margin-right: 8px;
+				vertical-align: middle;
+				box-shadow: 0 0 0 4px var(--teal-soft);
+			}
+
+			main {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 32px 20px 48px;
+			}
+
+			.screen {
+				width: 100%;
+				max-width: 1120px;
+			}
+
+			/* Landing */
+			.landing {
+				max-width: 680px;
+				margin: 0 auto;
+				text-align: center;
+				padding: 24px 8px;
+			}
+
+			.eyebrow {
+				display: inline-block;
+				font-size: 12px;
+				letter-spacing: 0.3em;
+				text-transform: uppercase;
+				color: var(--teal);
+				margin-bottom: 20px;
+			}
+
+			.eyebrow::before,
+			.eyebrow::after {
+				content: "";
+				display: inline-block;
+				width: 28px;
+				height: 1px;
+				background: var(--line-strong);
+				vertical-align: middle;
+				margin: 0 12px;
+			}
+
+			h1 {
+				font-family: var(--serif);
+				font-weight: 600;
+				font-size: clamp(32px, 5vw, 52px);
+				line-height: 1.08;
+				letter-spacing: -0.01em;
+				margin: 0 0 18px;
+			}
+
+			h1 em {
+				font-style: italic;
+				color: var(--gold);
+			}
+
+			.lede {
+				font-size: 18px;
+				color: var(--muted);
+				margin: 0 auto 36px;
+				max-width: 480px;
+			}
+
+			.lede strong {
+				color: var(--cream);
+				font-weight: 600;
+			}
+
+			/* Buttons */
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 10px;
+				border: 1px solid transparent;
+				border-radius: 999px;
+				padding: 16px 36px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				cursor: pointer;
+				transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+				text-decoration: none;
+				-webkit-tap-highlight-color: transparent;
+			}
+
+			.btn:focus-visible {
+				outline: 2px solid var(--teal);
+				outline-offset: 3px;
+			}
+
+			.btn--primary {
+				background: linear-gradient(180deg, rgba(221, 184, 120, 1), rgba(201, 161, 95, 1));
+				color: #1a1408;
+				box-shadow: 0 10px 30px rgba(201, 161, 95, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+				font-size: 18px;
+			}
+
+			.btn--primary:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 14px 34px rgba(201, 161, 95, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+			}
+
+			.btn--primary:active {
+				transform: translateY(0);
+			}
+
+			.btn--primary:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+				transform: none;
+				box-shadow: none;
+			}
+
+			.btn--big {
+				width: 100%;
+				padding: 18px 28px;
+			}
+
+			.btn--ghost {
+				background: transparent;
+				border-color: var(--line-strong);
+				color: var(--cream);
+				padding: 10px 18px;
+				font-size: 14px;
+			}
+
+			.btn--ghost:hover {
+				background: var(--gold-soft);
+			}
+
+			.btn--ghost:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+			}
+
+			.landing .btn--primary {
+				min-width: 260px;
+			}
+
+			.landing__fine {
+				margin-top: 22px;
+				font-size: 13px;
+				color: var(--soft);
+			}
+
+			/* Device check */
+			.check {
+				display: grid;
+				grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+				gap: 28px;
+				align-items: start;
+			}
+
+			.stage {
+				position: relative;
+				background: var(--ink-2);
+				border: 1px solid var(--line);
+				border-radius: var(--radius);
+				overflow: hidden;
+				box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+			}
+
+			/* 16:9 ratio box (padding fallback keeps Chrome 80 happy; no aspect-ratio). */
+			.stage::before {
+				content: "";
+				display: block;
+				padding-top: 56.25%;
+			}
+
+			.stage video {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				transform: scaleX(-1);
+				background: #000;
+			}
+
+			.stage__corner {
+				position: absolute;
+				width: 18px;
+				height: 18px;
+				border-color: var(--gold);
+				border-style: solid;
+				border-width: 0;
+				opacity: 0.8;
+				pointer-events: none;
+			}
+
+			.stage__corner--tl {
+				top: 12px;
+				left: 12px;
+				border-top-width: 1px;
+				border-left-width: 1px;
+			}
+
+			.stage__corner--tr {
+				top: 12px;
+				right: 12px;
+				border-top-width: 1px;
+				border-right-width: 1px;
+			}
+
+			.stage__corner--bl {
+				bottom: 12px;
+				left: 12px;
+				border-bottom-width: 1px;
+				border-left-width: 1px;
+			}
+
+			.stage__corner--br {
+				bottom: 12px;
+				right: 12px;
+				border-bottom-width: 1px;
+				border-right-width: 1px;
+			}
+
+			.chip {
+				position: absolute;
+				left: 18px;
+				bottom: 18px;
+				display: inline-flex;
+				align-items: center;
+				gap: 10px;
+				padding: 8px 14px 8px 10px;
+				border-radius: 999px;
+				background: rgba(10, 22, 30, 0.78);
+				border: 1px solid var(--line-strong);
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				font-size: 13px;
+				color: var(--muted);
+				max-width: calc(100% - 36px);
+			}
+
+			.chip__res {
+				font-family: var(--mono);
+				font-weight: 700;
+				font-size: 13px;
+				letter-spacing: 0.06em;
+				color: var(--ink);
+				background: var(--gold);
+				padding: 2px 9px;
+				border-radius: 999px;
+			}
+
+			.chip__res[data-state="pending"] {
+				background: var(--teal);
+			}
+
+			.stage__hint {
+				position: absolute;
+				top: 16px;
+				right: 18px;
+				font-size: 11px;
+				letter-spacing: 0.2em;
+				text-transform: uppercase;
+				color: var(--teal);
+				background: rgba(10, 22, 30, 0.6);
+				padding: 4px 10px;
+				border-radius: 999px;
+			}
+
+			.panel {
+				background: var(--ink-2);
+				border: 1px solid var(--line);
+				border-radius: var(--radius);
+				padding: 26px 26px 24px;
+			}
+
+			.panel h2 {
+				font-family: var(--serif);
+				font-weight: 600;
+				font-size: 26px;
+				margin: 0 0 4px;
+			}
+
+			.panel__sub {
+				margin: 0 0 22px;
+				color: var(--muted);
+				font-size: 14px;
+			}
+
+			.field {
+				margin-bottom: 18px;
+			}
+
+			.field label,
+			.field .label {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				font-size: 12px;
+				letter-spacing: 0.16em;
+				text-transform: uppercase;
+				color: var(--gold);
+				margin-bottom: 8px;
+			}
+
+			.field label small {
+				letter-spacing: 0.04em;
+				text-transform: none;
+				color: var(--soft);
+				font-size: 12px;
+			}
+
+			.control {
+				width: 100%;
+				background: var(--ink-3);
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				padding: 12px 14px;
+				color: var(--cream);
+				outline: none;
+				transition: border-color 0.12s ease, box-shadow 0.12s ease;
+				-webkit-appearance: none;
+				appearance: none;
+			}
+
+			.control:focus {
+				border-color: var(--teal);
+				box-shadow: 0 0 0 3px var(--teal-soft);
+			}
+
+			select.control {
+				padding-right: 40px;
+				background-image: linear-gradient(45deg, transparent 50%, var(--gold) 50%), linear-gradient(135deg, var(--gold) 50%, transparent 50%);
+				background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+				background-size: 6px 6px, 6px 6px;
+				background-repeat: no-repeat;
+				cursor: pointer;
+			}
+
+			select.control:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+
+			.row {
+				display: flex;
+				gap: 10px;
+				align-items: stretch;
+			}
+
+			.row .control {
+				flex: 1;
+				min-width: 0;
+			}
+
+			/* Level meter */
+			.meter {
+				margin-top: 10px;
+				height: 10px;
+				border-radius: 999px;
+				background: var(--ink);
+				border: 1px solid var(--line);
+				position: relative;
+				overflow: hidden;
+			}
+
+			.meter__fill {
+				position: absolute;
+				left: 0;
+				top: 0;
+				bottom: 0;
+				width: 0%;
+				background: linear-gradient(90deg, var(--teal) 0%, var(--teal) 62%, var(--gold) 82%, var(--danger) 100%);
+				border-radius: 999px;
+				transition: width 60ms linear;
+			}
+
+			.meter__peak {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				width: 2px;
+				left: 0%;
+				background: var(--cream);
+				opacity: 0.8;
+				transition: left 120ms ease-out;
+			}
+
+			.meter__caption {
+				display: flex;
+				justify-content: space-between;
+				font-size: 12px;
+				color: var(--soft);
+				margin-top: 6px;
+			}
+
+			.meter__caption .ok {
+				color: var(--teal);
+			}
+
+			/* Segmented toggle */
+			.seg {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				overflow: hidden;
+				background: var(--ink-3);
+			}
+
+			.seg button {
+				background: transparent;
+				border: 0;
+				padding: 12px 10px;
+				cursor: pointer;
+				color: var(--muted);
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				transition: background 0.12s ease, color 0.12s ease;
+			}
+
+			.seg button + button {
+				border-left: 1px solid var(--line);
+			}
+
+			.seg button[aria-pressed="true"] {
+				background: var(--gold-soft);
+				color: var(--gold);
+				box-shadow: inset 0 0 0 1px var(--line-strong);
+			}
+
+			.seg button:focus-visible {
+				outline: 2px solid var(--teal);
+				outline-offset: -2px;
+			}
+
+			.help {
+				font-size: 13px;
+				color: var(--soft);
+				margin-top: 8px;
+			}
+
+			.help.warn {
+				color: var(--danger);
+			}
+
+			.actions {
+				margin-top: 24px;
+			}
+
+			.actions .fine {
+				text-align: center;
+				font-size: 12px;
+				color: var(--soft);
+				margin-top: 12px;
+			}
+
+			/* Status / error states */
+			.notice {
+				max-width: 620px;
+				margin: 0 auto;
+				text-align: center;
+				padding: 36px 28px;
+				background: var(--ink-2);
+				border: 1px solid var(--line);
+				border-radius: var(--radius);
+			}
+
+			.notice h2 {
+				font-family: var(--serif);
+				font-weight: 600;
+				font-size: 28px;
+				margin: 0 0 12px;
+			}
+
+			.notice p {
+				color: var(--muted);
+				margin: 0 0 14px;
+			}
+
+			.notice ol {
+				text-align: left;
+				color: var(--muted);
+				margin: 0 auto 22px;
+				max-width: 440px;
+				padding-left: 22px;
+			}
+
+			.notice ol li {
+				margin-bottom: 6px;
+			}
+
+			.notice .btn + .btn {
+				margin-left: 10px;
+			}
+
+			.spinner {
+				width: 34px;
+				height: 34px;
+				border-radius: 50%;
+				border: 2px solid var(--line);
+				border-top-color: var(--gold);
+				margin: 0 auto 18px;
+				animation: spin 0.9s linear infinite;
+			}
+
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+
+			.fade-in {
+				animation: fadeIn 0.35s ease both;
+			}
+
+			@keyframes fadeIn {
+				from {
+					opacity: 0;
+					transform: translateY(6px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			footer {
+				padding: 14px 28px 22px;
+				text-align: center;
+				font-size: 12px;
+				color: var(--soft);
+				letter-spacing: 0.08em;
+			}
+
+			footer a {
+				color: var(--soft);
+			}
+
+			@media (max-width: 860px) {
+				.masthead {
+					padding: 14px 18px;
+				}
+
+				.masthead__right {
+					display: none;
+				}
+
+				main {
+					padding: 18px 14px 32px;
+					align-items: flex-start;
+				}
+
+				.check {
+					grid-template-columns: 1fr;
+					gap: 16px;
+				}
+
+				.panel {
+					padding: 20px 18px 18px;
+				}
+
+				.chip {
+					left: 12px;
+					bottom: 12px;
+					font-size: 12px;
+				}
+
+				.stage__hint {
+					display: none;
+				}
+
+				.btn--primary {
+					font-size: 17px;
+				}
+
+				.landing .btn--primary {
+					width: 100%;
+					min-width: 0;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.fade-in,
+				.spinner {
+					animation: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<header class="masthead">
+			<a class="wordmark" href="./join.html" onclick="return false;">
+				<span class="wordmark__name">FULLPORTMATT</span>
+				<span class="wordmark__sub">Studio</span>
+			</a>
+			<div class="masthead__right"><span class="dot"></span>Guest check-in</div>
+		</header>
+
+		<main>
+			<!-- Screen A: landing -->
+			<section id="landing" class="screen fade-in">
+				<div class="landing">
+					<span class="eyebrow">Guest entrance</span>
+					<h1>Welcome to the <em>FULLPORTMATT</em> Studio</h1>
+					<p class="lede">You are about to join <strong>Matt's show</strong>. Have a great time!</p>
+					<button id="continueBtn" class="btn btn--primary" type="button">Continue</button>
+					<p class="landing__fine">Next, your browser will ask for camera and microphone access.</p>
+				</div>
+			</section>
+
+			<!-- Waiting for permission -->
+			<section id="waiting" class="screen hidden">
+				<div class="notice fade-in">
+					<div class="spinner"></div>
+					<h2>Asking for your camera and mic</h2>
+					<p>Look for the permission prompt in your browser and choose <strong>Allow</strong>.</p>
+				</div>
+			</section>
+
+			<!-- Permission denied / device error -->
+			<section id="blocked" class="screen hidden">
+				<div class="notice fade-in">
+					<h2 id="blockedTitle">We couldn't reach your camera or mic</h2>
+					<p id="blockedText">The studio needs both to put you on the show.</p>
+					<ol id="blockedSteps">
+						<li>Click the camera or lock icon at the left of your browser's address bar.</li>
+						<li>Set <strong>Camera</strong> and <strong>Microphone</strong> to <strong>Allow</strong>.</li>
+						<li>Come back here and press <strong>Try again</strong>.</li>
+					</ol>
+					<button id="retryBtn" class="btn btn--primary" type="button">Try again</button>
+					<button id="reloadBtn" class="btn btn--ghost" type="button">Reload page</button>
+				</div>
+			</section>
+
+			<!-- Bad link -->
+			<section id="badlink" class="screen hidden">
+				<div class="notice fade-in">
+					<h2>This invite link is incomplete</h2>
+					<p>It is missing the guest ID or room name. Ask Matt for a fresh link.</p>
+				</div>
+			</section>
+
+			<!-- Screen B: device check -->
+			<section id="check" class="screen hidden">
+				<div class="check fade-in">
+					<div class="stage">
+						<video id="preview" autoplay playsinline muted></video>
+						<span class="stage__corner stage__corner--tl"></span>
+						<span class="stage__corner stage__corner--tr"></span>
+						<span class="stage__corner stage__corner--bl"></span>
+						<span class="stage__corner stage__corner--br"></span>
+						<span class="stage__hint">Mirrored preview</span>
+						<div class="chip">
+							<span id="resChip" class="chip__res" data-state="pending">…</span>
+							<span id="resText">this is how you'll be recorded</span>
+						</div>
+					</div>
+
+					<div class="panel">
+						<h2>Let's check your devices</h2>
+						<p class="panel__sub">Pick what the show should use. You can change these later from the studio settings.</p>
+
+						<div class="field">
+							<label for="nameInput">Your name <small>shown on screen</small></label>
+							<input id="nameInput" class="control" type="text" maxlength="60" autocomplete="name" placeholder="How should we introduce you?" />
+						</div>
+
+						<div class="field">
+							<label for="cameraSelect">Camera</label>
+							<select id="cameraSelect" class="control"></select>
+						</div>
+
+						<div class="field">
+							<label for="micSelect">Microphone</label>
+							<select id="micSelect" class="control"></select>
+							<div class="meter" aria-hidden="true">
+								<div id="meterFill" class="meter__fill"></div>
+								<div id="meterPeak" class="meter__peak"></div>
+							</div>
+							<div class="meter__caption">
+								<span id="meterStatus">Say something…</span>
+								<span id="meterDb"></span>
+							</div>
+						</div>
+
+						<div class="field">
+							<label for="speakerSelect">Speaker</label>
+							<div class="row">
+								<select id="speakerSelect" class="control"></select>
+								<button id="toneBtn" class="btn btn--ghost" type="button">Test tone</button>
+							</div>
+							<div id="speakerHelp" class="help hidden"></div>
+						</div>
+
+						<div class="field">
+							<div class="label">Using headphones?</div>
+							<div class="seg" role="group" aria-label="Using headphones?">
+								<button id="hpYes" type="button" aria-pressed="false">Yes</button>
+								<button id="hpNo" type="button" aria-pressed="true">No</button>
+							</div>
+							<div id="hpHelp" class="help">No headphones? We'll turn on echo cancellation and noise suppression so Matt doesn't hear himself.</div>
+						</div>
+
+						<div class="actions">
+							<button id="joinBtn" class="btn btn--primary btn--big" type="button" disabled>Join studio</button>
+							<div class="fine">Joining opens the live studio in this tab.</div>
+						</div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer>FULLPORTMATT &middot; powered by <a href="https://vdo.ninja" rel="noopener" target="_blank">VDO.Ninja</a></footer>
+
+		<script>
+			(function () {
+				"use strict";
+
+				// --- Invite parameters ----------------------------------------------------
+				var params = new URLSearchParams(location.search);
+				var guestId = params.get("id") || params.get("push") || "";
+				var roomName = params.get("room") || "";
+
+				// Same character rules the studio applies (sanitizeStreamID / sanitizeRoomName).
+				guestId = guestId.trim().replace(/[\W]+/g, "_");
+				roomName = roomName.trim().replace(/[\W]+/g, "_");
+
+				// --- State -----------------------------------------------------------------
+				var stream = null; // live MediaStream shown in the preview
+				var audioCtx = null;
+				var analyser = null;
+				var meterSource = null;
+				var meterRaf = 0;
+				var meterPeakHold = 0;
+				var meterPeakAt = 0;
+				var headphones = false; // false = "No" (processing on), true = "Yes"
+				var sinkSupported = typeof HTMLMediaElement !== "undefined" && typeof HTMLMediaElement.prototype.setSinkId === "function";
+				var toneAudio = null;
+				var toneTimer = 0;
+
+				function $(id) {
+					return document.getElementById(id);
+				}
+
+				function show(id) {
+					var ids = ["landing", "waiting", "blocked", "badlink", "check"];
+					for (var i = 0; i < ids.length; i++) {
+						if (ids[i] === id) {
+							$(ids[i]).classList.remove("hidden");
+						} else {
+							$(ids[i]).classList.add("hidden");
+						}
+					}
+				}
+
+				function log() {
+					var args = ["[join]"];
+					for (var i = 0; i < arguments.length; i++) {
+						args.push(arguments[i]);
+					}
+					console.log.apply(console, args);
+				}
+
+				// --- Device helpers --------------------------------------------------------
+
+				// The studio normalizes &videodevice / &audiodevice with normalizeDeviceLabel()
+				// (non-word characters -> "_", lowercased) and then matches labels first and
+				// exact deviceId second. Chrome deviceIds are plain hex, so they survive that
+				// normalization and give an exact match. Browsers whose ids contain "+", "/"
+				// or "=" (Firefox, Safari) would be mangled, so for those we send the
+				// normalized label instead, which the studio matches with startsWith/includes.
+				function deviceParamValue(device) {
+					if (!device) {
+						return "";
+					}
+					if (device.deviceId && /^\w+$/.test(device.deviceId)) {
+						return device.deviceId;
+					}
+					if (device.label) {
+						return String(device.label).replace(/[\W]+/g, "_").toLowerCase();
+					}
+					return device.deviceId || "";
+				}
+
+				function selectedDevice(selectEl) {
+					var opt = selectEl.options[selectEl.selectedIndex];
+					if (!opt) {
+						return null;
+					}
+					return { deviceId: opt.value, label: opt.dataset.label || opt.textContent };
+				}
+
+				function fillSelect(selectEl, devices, kind, fallbackName, currentId) {
+					var previous = selectEl.value;
+					selectEl.innerHTML = "";
+					var count = 0;
+					for (var i = 0; i < devices.length; i++) {
+						var d = devices[i];
+						if (d.kind !== kind) {
+							continue;
+						}
+						count++;
+						var opt = document.createElement("option");
+						opt.value = d.deviceId;
+						opt.textContent = d.label || fallbackName + " " + count;
+						opt.dataset.label = d.label || "";
+						selectEl.appendChild(opt);
+					}
+					if (currentId && hasOption(selectEl, currentId)) {
+						selectEl.value = currentId;
+					} else if (previous && hasOption(selectEl, previous)) {
+						selectEl.value = previous;
+					}
+					selectEl.disabled = count === 0;
+					return count;
+				}
+
+				function hasOption(selectEl, value) {
+					for (var i = 0; i < selectEl.options.length; i++) {
+						if (selectEl.options[i].value === value) {
+							return true;
+						}
+					}
+					return false;
+				}
+
+				function currentTrackDeviceId(kind) {
+					if (!stream) {
+						return "";
+					}
+					var tracks = kind === "video" ? stream.getVideoTracks() : stream.getAudioTracks();
+					if (!tracks.length) {
+						return "";
+					}
+					var settings = tracks[0].getSettings ? tracks[0].getSettings() : {};
+					return settings.deviceId || "";
+				}
+
+				function refreshDeviceLists() {
+					return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+						var cams = fillSelect($("cameraSelect"), devices, "videoinput", "Camera", currentTrackDeviceId("video"));
+						var mics = fillSelect($("micSelect"), devices, "audioinput", "Microphone", currentTrackDeviceId("audio"));
+						var spk = fillSelect($("speakerSelect"), devices, "audiooutput", "Speaker", "");
+						log("devices enumerated: cameras=" + cams + " mics=" + mics + " speakers=" + spk);
+						if (!sinkSupported) {
+							$("speakerSelect").disabled = true;
+							$("speakerHelp").textContent = "Your browser picks the speaker for you. The test tone still plays through your default output.";
+							$("speakerHelp").classList.remove("hidden");
+						} else if (spk === 0) {
+							$("speakerSelect").disabled = true;
+							$("speakerHelp").textContent = "No speakers listed; your system default will be used.";
+							$("speakerHelp").classList.remove("hidden");
+						} else {
+							$("speakerHelp").classList.add("hidden");
+						}
+						return devices;
+					});
+				}
+
+				// --- Preview / getUserMedia ---------------------------------------------------
+
+				// Same shape as the studio's quality=0 request so the chip reports what the
+				// show will actually capture.
+				function videoConstraints(deviceId) {
+					var c = {
+						width: { ideal: 1920 },
+						height: { ideal: 1080 }
+					};
+					if (deviceId) {
+						c.deviceId = { exact: deviceId };
+					} else {
+						c.facingMode = "user";
+					}
+					return c;
+				}
+
+				function audioConstraints(deviceId) {
+					var c = {};
+					if (deviceId) {
+						c.deviceId = { exact: deviceId };
+					}
+					return c;
+				}
+
+				function stopTracks(s) {
+					if (!s) {
+						return;
+					}
+					var tracks = s.getTracks();
+					for (var i = 0; i < tracks.length; i++) {
+						try {
+							tracks[i].stop();
+						} catch (e) {}
+					}
+				}
+
+				function attachPreview() {
+					var video = $("preview");
+					video.srcObject = stream;
+					var p = video.play();
+					if (p && p.catch) {
+						p.catch(function () {});
+					}
+				}
+
+				function updateResolutionChip() {
+					var chip = $("resChip");
+					var tracks = stream ? stream.getVideoTracks() : [];
+					if (!tracks.length) {
+						chip.textContent = "no video";
+						chip.dataset.state = "pending";
+						return;
+					}
+					var s = tracks[0].getSettings ? tracks[0].getSettings() : {};
+					var w = s.width || $("preview").videoWidth;
+					var h = s.height || $("preview").videoHeight;
+					if (!w || !h) {
+						chip.textContent = "…";
+						chip.dataset.state = "pending";
+						return;
+					}
+					var shortSide = Math.min(w, h);
+					var label = shortSide + "p";
+					if (shortSide >= 2160) {
+						label = "4K";
+					} else if (shortSide >= 1440) {
+						label = "1440p";
+					} else if (shortSide >= 1080) {
+						label = "1080p";
+					} else if (shortSide >= 720) {
+						label = "720p";
+					}
+					var fps = s.frameRate ? " · " + Math.round(s.frameRate) + " fps" : "";
+					chip.textContent = label;
+					chip.dataset.state = "live";
+					chip.title = w + "×" + h + fps;
+					$("resText").textContent = "this is how you'll be recorded (" + w + "×" + h + fps + ")";
+					log("capture resolution " + w + "x" + h + fps);
+				}
+
+				function describeError(err) {
+					var name = err && err.name ? err.name : "";
+					var title = "We couldn't reach your camera or mic";
+					var text = "The studio needs both to put you on the show.";
+					var steps = true;
+					if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
+						title = "Camera and mic access was blocked";
+						text = "No worries. Allow access in your browser and try again.";
+					} else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+						title = "No camera or microphone found";
+						text = "Plug one in (or enable it), then try again.";
+						steps = false;
+					} else if (name === "NotReadableError" || name === "TrackStartError") {
+						title = "Another app is using your camera";
+						text = "Close Zoom, Teams, OBS or any other app using the camera, then try again.";
+						steps = false;
+					} else if (name === "OverconstrainedError") {
+						title = "That device didn't accept our settings";
+						text = "Try a different camera or microphone.";
+						steps = false;
+					}
+					$("blockedTitle").textContent = title;
+					$("blockedText").textContent = text;
+					if (steps) {
+						$("blockedSteps").classList.remove("hidden");
+					} else {
+						$("blockedSteps").classList.add("hidden");
+					}
+					log("getUserMedia failed: " + name + " " + (err && err.message ? err.message : ""));
+				}
+
+				function startPreview() {
+					if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+						$("blockedTitle").textContent = "This browser can't join the studio";
+						$("blockedText").textContent = "Please open this link in a current version of Chrome, Edge, Firefox or Safari.";
+						$("blockedSteps").classList.add("hidden");
+						show("blocked");
+						return;
+					}
+					show("waiting");
+					var constraints = { video: videoConstraints(""), audio: audioConstraints("") };
+					navigator.mediaDevices
+						.getUserMedia(constraints)
+						.catch(function (err) {
+							// A camera that rejects 1080p should not block the guest; retry without size hints.
+							if (err && err.name === "OverconstrainedError") {
+								return navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+							}
+							throw err;
+						})
+						.then(function (s) {
+							stopTracks(stream);
+							stream = s;
+							attachPreview();
+							show("check");
+							updateResolutionChip();
+							startMeter();
+							ensureAudioContext();
+							return refreshDeviceLists();
+						})
+						.then(function () {
+							updateJoinState();
+							setTimeout(function () {
+								$("nameInput").focus();
+							}, 50);
+						})
+						.catch(function (err) {
+							describeError(err);
+							show("blocked");
+						});
+				}
+
+				function switchCamera(deviceId) {
+					if (!stream) {
+						return;
+					}
+					var old = stream.getVideoTracks();
+					for (var i = 0; i < old.length; i++) {
+						stream.removeTrack(old[i]);
+						old[i].stop();
+					}
+					$("resChip").textContent = "…";
+					$("resChip").dataset.state = "pending";
+					navigator.mediaDevices
+						.getUserMedia({ video: videoConstraints(deviceId) })
+						.then(function (s) {
+							var tracks = s.getVideoTracks();
+							for (var j = 0; j < tracks.length; j++) {
+								stream.addTrack(tracks[j]);
+							}
+							attachPreview();
+							updateResolutionChip();
+						})
+						.catch(function (err) {
+							describeError(err);
+							show("blocked");
+						});
+				}
+
+				function switchMic(deviceId) {
+					if (!stream) {
+						return;
+					}
+					var old = stream.getAudioTracks();
+					for (var i = 0; i < old.length; i++) {
+						stream.removeTrack(old[i]);
+						old[i].stop();
+					}
+					navigator.mediaDevices
+						.getUserMedia({ audio: audioConstraints(deviceId) })
+						.then(function (s) {
+							var tracks = s.getAudioTracks();
+							for (var j = 0; j < tracks.length; j++) {
+								stream.addTrack(tracks[j]);
+							}
+							startMeter();
+						})
+						.catch(function (err) {
+							describeError(err);
+							show("blocked");
+						});
+				}
+
+				// --- Level meter (WebAudio) ---------------------------------------------------
+
+				function ensureAudioContext() {
+					if (audioCtx) {
+						if (audioCtx.state === "suspended") {
+							audioCtx.resume().catch(function () {});
+						}
+						return audioCtx;
+					}
+					var Ctx = window.AudioContext || window.webkitAudioContext;
+					if (!Ctx) {
+						return null;
+					}
+					audioCtx = new Ctx();
+					return audioCtx;
+				}
+
+				function startMeter() {
+					var ctx = ensureAudioContext();
+					if (!ctx || !stream || !stream.getAudioTracks().length) {
+						$("meterStatus").textContent = "No microphone signal";
+						return;
+					}
+					if (meterSource) {
+						try {
+							meterSource.disconnect();
+						} catch (e) {}
+					}
+					// Feed only the audio track so the analyser is unaffected by camera swaps.
+					var audioOnly = new MediaStream(stream.getAudioTracks());
+					meterSource = ctx.createMediaStreamSource(audioOnly);
+					analyser = ctx.createAnalyser();
+					analyser.fftSize = 1024;
+					analyser.smoothingTimeConstant = 0.5;
+					meterSource.connect(analyser);
+					if (!meterRaf) {
+						meterLoop();
+					}
+				}
+
+				var meterBuf = null;
+				var meterSmoothed = 0;
+				var meterHeardAt = 0;
+
+				function meterLoop() {
+					meterRaf = requestAnimationFrame(meterLoop);
+					if (!analyser) {
+						return;
+					}
+					if (!meterBuf || meterBuf.length !== analyser.fftSize) {
+						meterBuf = new Uint8Array(analyser.fftSize);
+					}
+					analyser.getByteTimeDomainData(meterBuf);
+					var sum = 0;
+					for (var i = 0; i < meterBuf.length; i++) {
+						var v = (meterBuf[i] - 128) / 128;
+						sum += v * v;
+					}
+					var rms = Math.sqrt(sum / meterBuf.length);
+					var db = 20 * Math.log10(rms || 0.00001);
+					// Map -60 dBFS..0 dBFS onto 0..100%.
+					var pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+					meterSmoothed = pct > meterSmoothed ? pct : meterSmoothed * 0.85 + pct * 0.15;
+					var now = performance.now();
+					if (meterSmoothed > meterPeakHold || now - meterPeakAt > 1200) {
+						meterPeakHold = meterSmoothed;
+						meterPeakAt = now;
+					}
+					$("meterFill").style.width = meterSmoothed.toFixed(1) + "%";
+					$("meterPeak").style.left = "calc(" + meterPeakHold.toFixed(1) + "% - 1px)";
+					$("meterDb").textContent = db > -60 ? Math.round(db) + " dB" : "";
+					if (pct > 12) {
+						meterHeardAt = now;
+					}
+					var status = $("meterStatus");
+					if (now - meterHeardAt < 1500) {
+						status.textContent = "We can hear you";
+						status.className = "ok";
+					} else {
+						status.textContent = "Say something…";
+						status.className = "";
+					}
+				}
+
+				// --- Speaker test tone ------------------------------------------------------
+
+				function playTestTone() {
+					var ctx = ensureAudioContext();
+					if (!ctx) {
+						return;
+					}
+					stopTestTone();
+					var dest = ctx.createMediaStreamDestination();
+					var gain = ctx.createGain();
+					gain.gain.value = 0.0001;
+					gain.connect(dest);
+					var t0 = ctx.currentTime;
+					var notes = [523.25, 659.25, 783.99]; // C5 E5 G5: a friendly little chime
+					for (var i = 0; i < notes.length; i++) {
+						var osc = ctx.createOscillator();
+						osc.type = "sine";
+						osc.frequency.value = notes[i];
+						var g = ctx.createGain();
+						g.gain.setValueAtTime(0.0001, t0 + i * 0.22);
+						g.gain.exponentialRampToValueAtTime(0.35, t0 + i * 0.22 + 0.03);
+						g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.22 + 0.5);
+						osc.connect(g);
+						g.connect(dest);
+						osc.start(t0 + i * 0.22);
+						osc.stop(t0 + i * 0.22 + 0.55);
+					}
+					toneAudio = new Audio();
+					toneAudio.srcObject = dest.stream;
+					var sinkId = $("speakerSelect").value;
+					var p = Promise.resolve();
+					if (sinkSupported && sinkId && sinkId !== "default") {
+						p = toneAudio.setSinkId(sinkId).catch(function (e) {
+							log("setSinkId failed, using default output: " + (e && e.message));
+						});
+					}
+					p.then(function () {
+						var pp = toneAudio.play();
+						if (pp && pp.catch) {
+							pp.catch(function (e) {
+								log("tone play failed: " + (e && e.message));
+							});
+						}
+					});
+					$("toneBtn").disabled = true;
+					$("toneBtn").textContent = "Playing…";
+					toneTimer = setTimeout(stopTestTone, 1300);
+				}
+
+				function stopTestTone() {
+					if (toneTimer) {
+						clearTimeout(toneTimer);
+						toneTimer = 0;
+					}
+					if (toneAudio) {
+						try {
+							toneAudio.pause();
+							toneAudio.srcObject = null;
+						} catch (e) {}
+						toneAudio = null;
+					}
+					$("toneBtn").disabled = false;
+					$("toneBtn").textContent = "Test tone";
+				}
+
+				// --- Join URL ----------------------------------------------------------------
+
+				function guestName() {
+					return $("nameInput").value.replace(/\s+/g, " ").trim();
+				}
+
+				function updateJoinState() {
+					var ready = !!stream && guestName().length > 0 && !!guestId && !!roomName;
+					$("joinBtn").disabled = !ready;
+				}
+
+				// Exposed so the constructed URL can be inspected from the console.
+				window.fpmBuildJoinURL = function () {
+					var cam = selectedDevice($("cameraSelect"));
+					var mic = selectedDevice($("micSelect"));
+					var spk = selectedDevice($("speakerSelect"));
+					var parts = [];
+					parts.push("push=" + encodeURIComponent(guestId));
+					parts.push("room=" + encodeURIComponent(roomName));
+					parts.push("webcam");
+					parts.push("hiddenrecord");
+					parts.push("autostart");
+					var camValue = deviceParamValue(cam);
+					if (camValue) {
+						parts.push("videodevice=" + encodeURIComponent(camValue));
+					}
+					var micValue = deviceParamValue(mic);
+					if (micValue) {
+						parts.push("audiodevice=" + encodeURIComponent(micValue));
+					}
+					if (sinkSupported && spk && spk.deviceId && spk.deviceId !== "default") {
+						parts.push("sink=" + encodeURIComponent(spk.deviceId));
+					}
+					parts.push("label=" + encodeURIComponent(guestName()));
+					if (!headphones) {
+						parts.push("aec");
+						parts.push("denoise");
+						parts.push("autogain");
+					}
+					// In-room polish (see NOTES.md): 1080p capture, dark theme, no solo links.
+					parts.push("quality=0");
+					parts.push("darkmode");
+					parts.push("hidesolo");
+					return "./?" + parts.join("&");
+				};
+
+				function join() {
+					if ($("joinBtn").disabled) {
+						return;
+					}
+					var url = window.fpmBuildJoinURL();
+					log("joining studio: " + url);
+					try {
+						localStorage.setItem("fpmGuestName", guestName());
+					} catch (e) {}
+					$("joinBtn").disabled = true;
+					$("joinBtn").textContent = "Opening the studio…";
+					stopTestTone();
+					if (meterRaf) {
+						cancelAnimationFrame(meterRaf);
+						meterRaf = 0;
+					}
+					// Release the devices so the studio can claim them immediately.
+					stopTracks(stream);
+					location.href = url;
+				}
+
+				// --- Wiring ------------------------------------------------------------------
+
+				$("continueBtn").addEventListener("click", startPreview);
+				$("retryBtn").addEventListener("click", startPreview);
+				$("reloadBtn").addEventListener("click", function () {
+					location.reload();
+				});
+				$("joinBtn").addEventListener("click", join);
+				$("toneBtn").addEventListener("click", playTestTone);
+				$("nameInput").addEventListener("input", updateJoinState);
+				$("nameInput").addEventListener("keydown", function (e) {
+					if (e.key === "Enter") {
+						join();
+					}
+				});
+				$("cameraSelect").addEventListener("change", function () {
+					switchCamera(this.value);
+				});
+				$("micSelect").addEventListener("change", function () {
+					switchMic(this.value);
+				});
+				$("speakerSelect").addEventListener("change", function () {
+					if (toneAudio) {
+						playTestTone();
+					}
+				});
+				$("hpYes").addEventListener("click", function () {
+					headphones = true;
+					$("hpYes").setAttribute("aria-pressed", "true");
+					$("hpNo").setAttribute("aria-pressed", "false");
+					$("hpHelp").textContent = "Great. Headphones give the cleanest recording.";
+				});
+				$("hpNo").addEventListener("click", function () {
+					headphones = false;
+					$("hpNo").setAttribute("aria-pressed", "true");
+					$("hpYes").setAttribute("aria-pressed", "false");
+					$("hpHelp").textContent = "No headphones? We'll turn on echo cancellation and noise suppression so Matt doesn't hear himself.";
+				});
+				$("preview").addEventListener("loadedmetadata", updateResolutionChip);
+
+				if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+					navigator.mediaDevices.addEventListener("devicechange", function () {
+						if (stream) {
+							refreshDeviceLists().catch(function () {});
+						}
+					});
+				}
+
+				window.addEventListener("pagehide", function () {
+					stopTestTone();
+					stopTracks(stream);
+				});
+
+				try {
+					var saved = localStorage.getItem("fpmGuestName");
+					if (saved) {
+						$("nameInput").value = saved;
+					}
+				} catch (e) {}
+
+				if (!guestId || !roomName) {
+					log("missing id/room in invite link");
+					show("badlink");
+				} else {
+					log("invite ok: id=" + guestId + " room=" + roomName);
+				}
+			})();
+		</script>
+	</body>
+</html>

@@ -1,4 +1,164 @@
-# Hidden guest-side recording (`&hiddenrecord`)
+# FULLPORTMATT guest studio notes
+
+Two fork-specific pieces live here:
+
+1. **Branded guest join flow** (`join.html`) — section A below.
+2. **Hidden guest-side recording** (`&hiddenrecord`) — section B below.
+
+---
+
+# A. Branded guest join flow (`join.html`)
+
+Branch: `deploy`. Deployed at `https://matt-leftcurve.github.io/studio/`.
+Self-contained page (inline CSS + JS, no external assets, no CDNs). `lib.js`,
+`main.js` and `webrtc.js` are **not** modified; the page hands off to the
+stock app purely through documented URL parameters.
+
+## Canonical guest link
+
+```
+https://matt-leftcurve.github.io/studio/join.html?id=<guestID>&room=fpmshow
+```
+
+- `id` is the guest's push/stream ID (`push` is accepted as an alias).
+- `room` is the room name (default show room: `fpmshow`).
+- Both are sanitized the same way the app does it (`[\W]+` → `_`), so the
+  sanitized values the page shows in the console are exactly what the app will
+  use. A link missing either value shows a "This invite link is incomplete"
+  screen instead of a broken join.
+
+## Flow
+
+1. **Landing** — "Welcome to the FULLPORTMATT Studio", "You are about to join
+   Matt's show. Have a great time!", one big **Continue** button. Clicking it
+   triggers `getUserMedia({ video: {ideal 1920×1080, facingMode user}, audio })`.
+   If the camera rejects the 1080p hint (`OverconstrainedError`) the page
+   retries with `{ video: true, audio: true }` so nobody is blocked by an older
+   webcam.
+2. **Device check** — left: live, mirrored (CSS `scaleX(-1)`) preview with a chip
+   showing the **actual** captured resolution from `track.getSettings()`
+   ("1080p — this is how you'll be recorded (1920×1080 · 30 fps)"). Right:
+   name field; camera select; microphone select with a live WebAudio RMS meter
+   (AnalyserNode, −60..0 dBFS → 0..100 %, peak-hold); speaker select with a
+   **Test tone** (C–E–G chime through an `<audio>` element, routed with
+   `setSinkId` where supported, otherwise the select is disabled with a note);
+   "Using headphones?" Yes/No segmented control (defaults to **No**, the safer
+   assumption); big **Join studio** button, enabled once a name is typed.
+   Switching camera/mic swaps only that track on the live stream and
+   re-reads the resolution chip / rebuilds the meter. `devicechange` events
+   refresh the lists (e.g. plugging in a headset).
+3. **Join** — releases the preview tracks and navigates the same tab to the app.
+4. **Denied / error UX** — one "blocked" screen whose title/text adapt to the
+   error (`NotAllowedError` → unblock steps for the address-bar icon;
+   `NotFoundError`; `NotReadableError` "another app is using your camera";
+   `OverconstrainedError`; missing `getUserMedia` → unsupported browser). It has
+   **Try again** (re-runs `getUserMedia`) and **Reload page**.
+
+The guest's name is remembered in `localStorage` (`fpmGuestName`) so a
+returning guest only has to confirm it.
+
+## Constructed join URL
+
+```
+./?push=<id>&room=<room>&webcam&hiddenrecord&autostart
+   &videodevice=<camera>&audiodevice=<mic>[&sink=<speakerDeviceId>]
+   &label=<encodeURIComponent(name)>
+   [&aec&denoise&autogain]          ← only when "Using headphones?" = No
+   &quality=0&darkmode&hidesolo     ← in-room polish, see below
+```
+
+`window.fpmBuildJoinURL()` returns the URL the Join button will use (handy in
+DevTools); the page also logs `[join] joining studio: <url>` before navigating.
+
+### `videodevice` / `audiodevice`: deviceId or label? (verified in this codebase)
+
+`main.js:4794` / `main.js:4839` read the params and immediately pass the value
+through `normalizeDeviceLabel()` (`lib.js:34373`: `replace(/[\W]+/g, "_")` +
+lowercase); the audio value is additionally `split(",")` into an array.
+`gotDevices()` then matches:
+
+- video (`lib.js:34584`): label `startsWith` → label `includes` → **exact
+  `deviceId ===`** as the fallback when no label matched.
+- audio (`lib.js:34508`): `audioDevice.includes(deviceId)` **or**
+  `includes(normalizeDeviceLabel(label))` → then label `includes` per entry.
+
+So **both** work, but a deviceId only survives the normalization if it is made of
+word characters. Chrome/Edge deviceIds are 64-char hex, so the page sends the
+**deviceId** there (unambiguous, exact match). Firefox/Safari ids contain
+`+ / =` and would be mangled, so for any id failing `/^\w+$/` the page sends
+the **normalized label** instead (`label.replace(/[\W]+/g,"_").toLowerCase()`),
+which matches the app's `startsWith`/`includes` passes. When the browser's
+"default" microphone entry is chosen the value is literally `default`, which
+`main.js` maps to `session.audioDevice = 1` (system default). Note that any
+`videodevice`/`audiodevice` presence also hides the app's own device menus and
+its "headphones?" question (`main.js:4826`, `main.js:4868`), which is what we
+want since join.html already asked.
+
+`label`: `main.js:3502` does `decodeURIComponent` then `_` → space, then
+`sanitizeLabel()`. The page single-encodes with `encodeURIComponent`; a literal
+`_` in a name will therefore show as a space in-room (app behaviour).
+
+`sink`: `main.js:6115` sets `session.sink` to the given output deviceId and the
+app pre-selects it in its output menu (`lib.js:34834`). Only appended when
+`setSinkId` is supported and a non-default speaker was chosen.
+
+Headphones = **Yes** appends nothing: the app then sends no processing
+constraints (`lib.js:38610`) and the browser default applies (Chrome's default
+is AEC/NS/AGC on). If raw audio for headphone users is wanted later, append
+`&aec=0&denoise=0&autogain=0` (or `&proaudio`) in that branch.
+
+### In-room polish params (existing flags only, verified in `main.js`)
+
+| param | why |
+| --- | --- |
+| `&quality=0` (`main.js:6057`) | In a room the app defaults to `quality_room = 1` (720p, `webrtc.js:1254`). `quality=0` requests 1920×1080 (`lib.js:34995`), matching what the preview chip showed, so "this is how you'll be recorded" is true for the local `&hiddenrecord` file. |
+| `&darkmode` (`main.js:4758`) | Dark theme in-room; continuity with the join page. |
+| `&hidesolo` (`main.js:2176`) | Hides the "solo link" controls guests never need. |
+| `&webcam&autostart` | Skip the VDO chooser and the second "start" click (`main.js:1992`, `main.js:4928`). |
+| `&hiddenrecord` | This fork's invisible guest-side recording (section B). |
+
+Considered and left out: `&nosettings` (guests may legitimately need to swap a
+mic mid-show), `&easyexit` (removes the leave prompt; risky during a recording),
+`&hideheader`/`&hidemenu` (hides the control bar too), `&cleanish` (scene use).
+
+## Test results (2026-10-31, headless Google Chrome 138, fake media)
+
+Static server: `python3 -m http.server 8787 --bind 127.0.0.1` in the checkout.
+Chrome: `--headless=new --use-fake-device-for-media-stream
+--use-fake-ui-for-media-stream --autoplay-policy=no-user-gesture-required
+--remote-debugging-port=9333`. A CDP driver (kept outside the repo, in
+`/tmp/fpm-join-test/`) clicked through the page and blocked the final
+navigation with `Fetch.failRequest` so the stock app never connected to
+signaling.
+
+| check | result |
+| --- | --- |
+| landing renders, Continue → device screen | pass |
+| devices enumerate after permission | cameras=1, mics=3, speakers=3 (fake set) |
+| resolution chip | `1080p`, "1920×1080 · 20 fps" (fake cam runs 20 fps) |
+| mic meter | 12 samples over 1.8 s: 1.8 %…93.6 %, 11 distinct values, "We can hear you" |
+| join disabled until name typed | pass |
+| test tone button | "Playing…" then back to "Test tone" after 1.3 s |
+| join URL (headphones=No, name `Jane O'Brien & Co`) | `./?push=guest_one&room=fpmshow&webcam&hiddenrecord&autostart&videodevice=<64-hex>&audiodevice=default&label=Jane%20O'Brien%20%26%20Co&aec&denoise&autogain&quality=0&darkmode&hidesolo` |
+| join URL (headphones=Yes) | same without `&aec&denoise&autogain` |
+| Join click | navigated to `/?push=…` (intercepted) |
+| `join.html` without params | "This invite link is incomplete" screen |
+| screenshots 1280×820 and 390×844 (mobile emulation) | two-column / single-column layouts as intended |
+
+Not tested: a real Chrome 80 runtime, Firefox/Safari label fallback with real
+hardware, real speakers/`setSinkId` routing, and the end-to-end join into a
+live room (needs a real director session). Syntax: inline script passes
+`node --check`; no `?.`, `??`, `aspect-ratio`, `inset` or newer APIs are used
+(16:9 box uses a padding-top fallback). `backdrop-filter` is progressive.
+
+Repo state caveat: `join.html` is fully self-contained. Any `join.css`,
+`join.js` or `fpm-guestbar.*` files present in the checkout come from a
+separate, concurrent attempt at this feature and are **not** referenced by this
+`join.html` nor part of this commit; the deployed page needs only `join.html`.
+
+---
+
+# B. Hidden guest-side recording (`&hiddenrecord`)
 
 Branch: `fpm-hidden-record`. Scope: FULLPORTMATT guest/push pages only.
 
