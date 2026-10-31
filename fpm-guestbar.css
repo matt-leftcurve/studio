@@ -1,0 +1,178 @@
+/* FULLPORTMATT guest control bar.
+   Only applies when fpm-guestbar.js adds `fpm-guest` to <body> (guest/push views;
+   never director, scene or clean output). Restyles the existing #controlButtons
+   markup; no DOM is added, labels and tooltips are pseudo-elements. */
+
+body.fpm-guest #subControlButtons {
+	background-color: rgba(10, 22, 30, 0.9);
+	border: 1px solid rgba(201, 161, 95, 0.35);
+	border-radius: 16px;
+	padding: 6px 8px;
+	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(10px) saturate(120%);
+	-webkit-backdrop-filter: blur(10px) saturate(120%);
+}
+
+body.fpm-guest #subControlButtons > div.float,
+body.fpm-guest #subControlButtons > div.float2 {
+	flex-direction: column;
+	gap: 0;
+	min-width: 72px;
+	min-height: 60px;
+	margin: 3px;
+	padding: 7px 10px 6px;
+	opacity: 1;
+	position: relative;
+	overflow: visible;
+	color: #f1ebe0;
+	background-color: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	border-radius: 12px;
+	box-shadow: none;
+	transition: background-color 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+
+body.fpm-guest #subControlButtons > div.float:hover,
+body.fpm-guest #subControlButtons > div.float:focus-visible {
+	background-color: rgba(201, 161, 95, 0.14);
+	border-color: rgba(201, 161, 95, 0.5);
+	border-radius: 12px;
+}
+
+body.fpm-guest #subControlButtons > div.float:active {
+	transform: translateY(1px);
+}
+
+body.fpm-guest #subControlButtons > div.float:focus-visible {
+	outline: 2px solid #7fd4c1;
+	outline-offset: 2px;
+}
+
+body.fpm-guest #subControlButtons .toggleSize {
+	font-size: 26px;
+	line-height: 1;
+	color: #f1ebe0;
+}
+
+/* button label under the icon */
+body.fpm-guest #subControlButtons > div[data-fpm-label]::after {
+	content: attr(data-fpm-label);
+	display: block;
+	margin-top: 5px;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	line-height: 1;
+	color: rgba(201, 161, 95, 0.95);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* state-aware tooltip above the button */
+body.fpm-guest #subControlButtons > div[data-fpm-tip]::before {
+	content: attr(data-fpm-tip);
+	position: absolute;
+	left: 50%;
+	bottom: calc(100% + 12px);
+	transform: translate(-50%, 4px);
+	background: #0a161e;
+	color: #f1ebe0;
+	border: 1px solid rgba(201, 161, 95, 0.55);
+	border-radius: 8px;
+	padding: 7px 11px;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	font-size: 12.5px;
+	font-weight: 500;
+	letter-spacing: 0.01em;
+	line-height: 1;
+	white-space: nowrap;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms;
+	z-index: 1000;
+}
+
+body.fpm-guest #subControlButtons > div[data-fpm-tip]:hover::before,
+body.fpm-guest #subControlButtons > div[data-fpm-tip]:focus-visible::before {
+	opacity: 1;
+	visibility: visible;
+	transform: translate(-50%, 0);
+	transition-delay: 0s;
+}
+
+/* muted / camera-off: keep the existing red state class, soften the tone */
+body.fpm-guest #subControlButtons > div.float.red {
+	background-color: #7d1d1d !important;
+	border-color: rgba(255, 140, 140, 0.45);
+}
+
+body.fpm-guest #subControlButtons > div.float.red:hover {
+	background-color: #962424 !important;
+}
+
+body.fpm-guest #subControlButtons > div.float.red::after {
+	color: #ffd9d4;
+}
+
+/* Leave is always tinted red */
+body.fpm-guest #hangupbutton,
+body.fpm-guest #hangupbutton2 {
+	background-color: rgba(168, 40, 40, 0.9) !important;
+	border-color: rgba(255, 140, 140, 0.4);
+}
+
+body.fpm-guest #hangupbutton:hover,
+body.fpm-guest #hangupbutton2:hover {
+	background-color: #c22f2f !important;
+	border-color: rgba(255, 170, 170, 0.6);
+}
+
+body.fpm-guest #hangupbutton::after {
+	color: #ffe1dd;
+}
+
+body.fpm-guest #hangupbutton .toggleSize {
+	color: #fff;
+}
+
+/* notification badges keep working on the relative buttons */
+body.fpm-guest #chatNotification,
+body.fpm-guest #transferNotification,
+body.fpm-guest #queueNotification {
+	z-index: 2;
+}
+
+/* speaker volume panel pops out of the button; keep it clickable and untouched */
+body.fpm-guest #speakerVolumePanel {
+	flex-direction: column;
+}
+
+@media (max-width: 640px) {
+	body.fpm-guest #subControlButtons {
+		border-radius: 14px;
+		padding: 4px;
+	}
+
+	body.fpm-guest #subControlButtons > div.float,
+	body.fpm-guest #subControlButtons > div.float2 {
+		min-width: 54px;
+		min-height: 50px;
+		padding: 6px 6px 5px;
+		margin: 2px;
+	}
+
+	body.fpm-guest #subControlButtons > div[data-fpm-label]::after {
+		font-size: 9px;
+		letter-spacing: 0.06em;
+	}
+}
+
+@media (hover: none) {
+	body.fpm-guest #subControlButtons > div[data-fpm-tip]::before {
+		display: none;
+	}
+}
