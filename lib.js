@@ -61340,29 +61340,63 @@ function hiddenRecordOpenDB() {
 function hiddenRecordCreateWriteStream(name) {
 	var dbPromise = hiddenRecordOpenDB();
 	var seq = 0;
+	var writeError = null;
+	// Serializes the per-chunk commits (preserves order, one transaction at a
+	// time) so close() can wait for durability without the stream's write()
+	// blocking the recorder pipeline on each commit. The live Google Drive /
+	// Dropbox upload shares that pipeline (handleDataAvailable hands each chunk
+	// to the uploader only after recorder.writer.write resolves); awaiting a
+	// durable IndexedDB commit here, which is slow on a backgrounded guest tab,
+	// would throttle the upload to the disk-commit rate, unlike the stock
+	// download sink which resolves immediately.
+	var committed = Promise.resolve();
+	function commit(entry) {
+		return dbPromise.then(function (db) {
+			return new Promise(function (resolve, reject) {
+				var tx = db.transaction("chunks", "readwrite");
+				tx.objectStore("chunks").add(entry);
+				tx.oncomplete = function () {
+					resolve();
+				};
+				tx.onerror = function () {
+					writeError = tx.error;
+					reject(tx.error);
+				};
+				tx.onabort = function () {
+					writeError = tx.error;
+					reject(tx.error);
+				};
+			});
+		});
+	}
 	return new WritableStream({
 		write: function (chunk) {
+			if (writeError) {
+				return Promise.reject(writeError);
+			}
 			var entry = { rec: name, seq: seq, data: new Blob([chunk]) };
 			seq++;
-			return dbPromise.then(function (db) {
-				return new Promise(function (resolve, reject) {
-					var tx = db.transaction("chunks", "readwrite");
-					tx.objectStore("chunks").add(entry);
-					tx.oncomplete = function () {
-						resolve();
-					};
-					tx.onerror = function () {
-						reject(tx.error);
-					};
-					tx.onabort = function () {
-						reject(tx.error);
-					};
-				});
+			committed = committed.then(function () {
+				return commit(entry);
 			});
+			// Surface a commit failure on the next write()/close(); swallow here so
+			// the chain keeps buffering remaining chunks.
+			committed.catch(function () {});
+			return Promise.resolve();
 		},
 		close: function () {
-			return dbPromise.then(function (db) {
-				db.close();
+			// Drain every outstanding commit before closing so a crash-recovery
+			// buffer is durable, then report any commit error.
+			return committed.then(function () {
+				return dbPromise.then(function (db) {
+					db.close();
+				});
+			}, function (e) {
+				return dbPromise.then(function (db) {
+					db.close();
+				}).then(function () {
+					throw e;
+				});
 			});
 		},
 		abort: function () {
