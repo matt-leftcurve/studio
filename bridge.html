@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>FULLPORTMATT · Screen-share → OBS bridge</title>
+		<link rel="icon" href="./media/favicon.ico" />
+		<style>
+			:root {
+				--ink: #0a161e;
+				--ink-2: #0e1d27;
+				--ink-3: #132632;
+				--line: rgba(201, 161, 95, 0.22);
+				--line-strong: rgba(201, 161, 95, 0.5);
+				--gold: rgba(201, 161, 95, 1);
+				--teal: #7fd4c1;
+				--cream: #f3ead8;
+				--muted: #a9b3b8;
+				--soft: #6f7d85;
+				--amber: #e0b36a;
+				--danger: #e08a7a;
+				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+				--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+				color-scheme: dark;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				min-height: 100vh;
+				background: var(--ink);
+				background-image: radial-gradient(1200px 600px at 50% -10%, rgba(127, 212, 193, 0.09), transparent 60%);
+				color: var(--cream);
+				font-family: var(--sans);
+				font-size: 14px;
+				line-height: 1.5;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 16px;
+				padding: 16px 24px;
+				border-bottom: 1px solid var(--line);
+			}
+
+			.wordmark {
+				display: flex;
+				align-items: baseline;
+				gap: 10px;
+			}
+
+			.wordmark__name {
+				font-family: var(--serif);
+				font-weight: 700;
+				font-size: 17px;
+				letter-spacing: 0.22em;
+				color: var(--gold);
+			}
+
+			.wordmark__sub {
+				font-size: 11px;
+				letter-spacing: 0.32em;
+				text-transform: uppercase;
+				color: var(--teal);
+			}
+
+			header .title {
+				font-size: 12px;
+				letter-spacing: 0.18em;
+				text-transform: uppercase;
+				color: var(--soft);
+			}
+
+			main {
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 22px 24px 40px;
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				gap: 16px;
+			}
+
+			.card {
+				background: var(--ink-2);
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				padding: 18px 20px;
+			}
+
+			.card h2 {
+				margin: 0 0 10px;
+				font-family: var(--serif);
+				font-weight: 600;
+				font-size: 20px;
+			}
+
+			.kv {
+				display: grid;
+				grid-template-columns: auto 1fr;
+				gap: 4px 14px;
+				font-size: 13px;
+			}
+
+			.kv dt {
+				color: var(--soft);
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				font-size: 11px;
+				padding-top: 3px;
+			}
+
+			.kv dd {
+				margin: 0;
+				font-family: var(--mono);
+				font-size: 13px;
+				word-break: break-all;
+			}
+
+			.pill {
+				display: inline-block;
+				padding: 2px 10px;
+				border-radius: 999px;
+				border: 1px solid var(--line-strong);
+				font-family: var(--sans);
+				font-size: 12px;
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+
+			.pill[data-tone="ok"] {
+				color: var(--teal);
+				border-color: rgba(127, 212, 193, 0.6);
+			}
+
+			.pill[data-tone="warn"] {
+				color: var(--amber);
+				border-color: rgba(224, 179, 106, 0.6);
+			}
+
+			.pill[data-tone="bad"] {
+				color: var(--danger);
+				border-color: rgba(224, 138, 122, 0.6);
+			}
+
+			.pill[data-tone="gold"] {
+				color: var(--gold);
+			}
+
+			.shares {
+				list-style: none;
+				padding: 0;
+				margin: 8px 0 0;
+				font-family: var(--mono);
+				font-size: 13px;
+			}
+
+			.shares li {
+				display: flex;
+				justify-content: space-between;
+				gap: 10px;
+				padding: 6px 0;
+				border-top: 1px solid var(--line);
+			}
+
+			.log {
+				grid-column: 1 / -1;
+			}
+
+			.log pre {
+				margin: 0;
+				max-height: 46vh;
+				overflow: auto;
+				padding: 12px 14px;
+				background: var(--ink);
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				font-family: var(--mono);
+				font-size: 12px;
+				line-height: 1.55;
+				color: var(--muted);
+				white-space: pre-wrap;
+			}
+
+			.log pre .t {
+				color: var(--soft);
+			}
+
+			.log pre .ok {
+				color: var(--teal);
+			}
+
+			.log pre .warn {
+				color: var(--amber);
+			}
+
+			.log pre .bad {
+				color: var(--danger);
+			}
+
+			.log pre .obs {
+				color: var(--gold);
+			}
+
+			.btns {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-top: 12px;
+			}
+
+			button {
+				font: inherit;
+				color: var(--cream);
+				background: var(--ink-3);
+				border: 1px solid var(--line-strong);
+				border-radius: 999px;
+				padding: 7px 14px;
+				cursor: pointer;
+				font-size: 13px;
+			}
+
+			button:hover {
+				background: rgba(201, 161, 95, 0.14);
+			}
+
+			button.danger {
+				border-color: rgba(224, 138, 122, 0.6);
+			}
+
+			.hidden {
+				display: none !important;
+			}
+
+			#stage {
+				position: fixed;
+				right: 10px;
+				bottom: 10px;
+				width: 220px;
+				height: 124px;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				overflow: hidden;
+				background: #000;
+				opacity: 0.6;
+			}
+
+			#stage iframe {
+				width: 100%;
+				height: 100%;
+				border: 0;
+			}
+
+			@media (max-width: 860px) {
+				main {
+					grid-template-columns: 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<div class="wordmark"><span class="wordmark__name">FULLPORTMATT</span><span class="wordmark__sub">Studio</span></div>
+			<div class="title">Screen-share → OBS bridge</div>
+		</header>
+
+		<main>
+			<section class="card">
+				<h2>OBS</h2>
+				<dl class="kv">
+					<dt>Status</dt>
+					<dd><span id="obsStatus" class="pill" data-tone="warn">connecting…</span></dd>
+					<dt>Address</dt>
+					<dd id="obsAddr"></dd>
+					<dt>Program</dt>
+					<dd id="obsScene">—</dd>
+					<dt>Share scene</dt>
+					<dd id="sceneShare"></dd>
+					<dt>Default scene</dt>
+					<dd id="sceneSbs"></dd>
+				</dl>
+			</section>
+
+			<section class="card">
+				<h2>Room</h2>
+				<dl class="kv">
+					<dt>Room</dt>
+					<dd id="roomName"></dd>
+					<dt>Status</dt>
+					<dd><span id="roomStatus" class="pill" data-tone="warn">joining…</span></dd>
+					<dt>Watching</dt>
+					<dd id="watchList"></dd>
+				</dl>
+				<ul id="shares" class="shares"></ul>
+			</section>
+
+			<section class="card">
+				<h2>Bridge</h2>
+				<dl class="kv">
+					<dt>Shares live</dt>
+					<dd><span id="shareState" class="pill">none</span></dd>
+					<dt>Wanted</dt>
+					<dd id="wanted">—</dd>
+					<dt>Last switch</dt>
+					<dd id="lastSwitch">—</dd>
+					<dt>Debounce</dt>
+					<dd id="debounceText"></dd>
+					<dt>Mode</dt>
+					<dd id="modeText"></dd>
+				</dl>
+				<div id="testBtns" class="btns hidden"></div>
+			</section>
+
+			<section class="card log">
+				<h2>Log</h2>
+				<pre id="log"></pre>
+			</section>
+		</main>
+
+		<div id="stage"></div>
+
+		<script>
+			(function () {
+				"use strict";
+
+				// ---- Config (URL params override the defaults) ---------------------------------------
+				var params = new URLSearchParams(location.search);
+				var ROOM = (params.get("room") || "fpmshow").replace(/[\W]+/g, "_");
+				var WATCH = (params.get("watch") || "G5EgnZp,G2FpmQx")
+					.split(",")
+					.map(function (s) {
+						return s.trim().replace(/:s$/, "").replace(/[\W]+/g, "_");
+					})
+					.filter(Boolean);
+				var OBS_URL = params.get("obs") || "ws://127.0.0.1:4455";
+				var OBS_PASS = params.has("pass") ? params.get("pass") : "bender-mini-4k";
+				var SCENE_SHARE = params.get("sharescene") || "Guest - Share";
+				var SCENE_SBS = params.get("sbsscene") || "Guest - SBS";
+				var DEBOUNCE_MS = parseInt(params.get("debounce") || "2000", 10) || 2000;
+				var SITE = params.get("site") || "./"; // where the VDO.Ninja app lives (same site by default)
+				var TEST = params.has("test"); // manual trigger buttons
+				var DRYRUN = params.has("dryrun"); // log scene switches instead of sending them
+				var PASSWORD = params.get("password") || ""; // room password, if the show ever uses one
+
+				// ---- State -----------------------------------------------------------------------------
+				var shares = {}; // baseStreamID -> true while that guest's screen share is live
+				var wantShare = null; // what the program scene should reflect: true = Share, false = SBS, null = untouched yet
+				var appliedShare = null; // last state actually sent to OBS
+				var debounceTimer = 0;
+				var obs = null;
+				var obsIdentified = false;
+				var obsRetry = 2000;
+				var reqId = 0;
+				var pendingReq = {};
+				var sceneNames = null;
+				var currentScene = "";
+
+				function $(id) {
+					return document.getElementById(id);
+				}
+
+				function pad(n) {
+					return n < 10 ? "0" + n : "" + n;
+				}
+
+				function log(text, tone) {
+					var d = new Date();
+					var t = pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+					var pre = $("log");
+					var line = document.createElement("div");
+					var ts = document.createElement("span");
+					ts.className = "t";
+					ts.textContent = t + "  ";
+					var body = document.createElement("span");
+					if (tone) {
+						body.className = tone;
+					}
+					body.textContent = text;
+					line.appendChild(ts);
+					line.appendChild(body);
+					pre.insertBefore(line, pre.firstChild);
+					while (pre.childNodes.length > 400) {
+						pre.removeChild(pre.lastChild);
+					}
+					console.log("[bridge] " + text);
+				}
+
+				function setPill(id, text, tone) {
+					var el = $(id);
+					el.textContent = text;
+					el.setAttribute("data-tone", tone || "");
+				}
+
+				// ---- Share state -----------------------------------------------------------------------
+				function anyShare() {
+					for (var k in shares) {
+						if (shares[k]) {
+							return true;
+						}
+					}
+					return false;
+				}
+
+				function renderShares() {
+					var ul = $("shares");
+					ul.innerHTML = "";
+					for (var i = 0; i < WATCH.length; i++) {
+						var li = document.createElement("li");
+						var id = document.createElement("span");
+						id.textContent = WATCH[i] + ":s";
+						var st = document.createElement("span");
+						st.className = "pill";
+						if (shares[WATCH[i]]) {
+							st.textContent = "sharing";
+							st.setAttribute("data-tone", "ok");
+						} else {
+							st.textContent = "idle";
+						}
+						li.appendChild(id);
+						li.appendChild(st);
+						ul.appendChild(li);
+					}
+					var live = anyShare();
+					setPill("shareState", live ? "yes" : "none", live ? "ok" : "");
+					$("wanted").textContent = wantShare === null ? "—" : wantShare ? SCENE_SHARE : SCENE_SBS;
+				}
+
+				// One handler for every signal: a watched guest's share went on or off.
+				function onShareSignal(baseId, isOn, source) {
+					if (WATCH.indexOf(baseId) === -1) {
+						return;
+					}
+					isOn = !!isOn;
+					if (!!shares[baseId] === isOn) {
+						return; // no change
+					}
+					shares[baseId] = isOn;
+					log("share " + (isOn ? "appeared" : "disappeared") + ": " + baseId + ":s  (" + source + ")", isOn ? "ok" : "warn");
+					var live = anyShare();
+					if (wantShare !== live) {
+						wantShare = live;
+						scheduleApply();
+					}
+					renderShares();
+				}
+
+				// Debounce: a share that flickers or a guest re-sharing within 2 s causes one switch, not several.
+				function scheduleApply() {
+					if (debounceTimer) {
+						clearTimeout(debounceTimer);
+					}
+					debounceTimer = setTimeout(function () {
+						debounceTimer = 0;
+						applyScene();
+					}, DEBOUNCE_MS);
+				}
+
+				function applyScene() {
+					if (wantShare === null || wantShare === appliedShare) {
+						return;
+					}
+					var scene = wantShare ? SCENE_SHARE : SCENE_SBS;
+					if (!obsIdentified) {
+						log("OBS not reachable; NOT switching to \"" + scene + "\" (will apply when OBS is back)", "bad");
+						return;
+					}
+					if (sceneNames && sceneNames.indexOf(scene) === -1) {
+						log("OBS has no scene named \"" + scene + "\"; NOT switching", "bad");
+						return;
+					}
+					if (DRYRUN) {
+						log("DRY RUN: would set program scene to \"" + scene + "\"", "obs");
+						appliedShare = wantShare;
+						$("lastSwitch").textContent = scene + " (dry run)";
+						return;
+					}
+					var target = wantShare;
+					obsRequest("SetCurrentProgramScene", { sceneName: scene }).then(
+						function () {
+							appliedShare = target;
+							currentScene = scene;
+							$("obsScene").textContent = scene;
+							$("lastSwitch").textContent = scene + " @ " + new Date().toLocaleTimeString();
+							log("OBS program scene → \"" + scene + "\"", "obs");
+						},
+						function (err) {
+							log("SetCurrentProgramScene failed: " + err, "bad");
+						}
+					);
+				}
+
+				// ---- OBS WebSocket v5 ------------------------------------------------------------------
+				function sha256b64(text) {
+					var bytes = new TextEncoder().encode(text);
+					return crypto.subtle.digest("SHA-256", bytes).then(function (buf) {
+						var arr = new Uint8Array(buf);
+						var s = "";
+						for (var i = 0; i < arr.length; i++) {
+							s += String.fromCharCode(arr[i]);
+						}
+						return btoa(s);
+					});
+				}
+
+				function obsAuth(challenge, salt) {
+					return sha256b64(OBS_PASS + salt).then(function (secret) {
+						return sha256b64(secret + challenge);
+					});
+				}
+
+				function obsRequest(type, data) {
+					return new Promise(function (resolve, reject) {
+						if (!obs || obs.readyState !== 1 || !obsIdentified) {
+							reject("not connected");
+							return;
+						}
+						var id = "r" + ++reqId;
+						pendingReq[id] = { resolve: resolve, reject: reject };
+						obs.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } }));
+						setTimeout(function () {
+							if (pendingReq[id]) {
+								delete pendingReq[id];
+								reject("timeout");
+							}
+						}, 5000);
+					});
+				}
+
+				function connectOBS() {
+					if (!window.crypto || !crypto.subtle) {
+						setPill("obsStatus", "no crypto.subtle", "bad");
+						log("crypto.subtle unavailable (open this page over https://, file:// or localhost)", "bad");
+						return;
+					}
+					setPill("obsStatus", "connecting…", "warn");
+					try {
+						obs = new WebSocket(OBS_URL);
+					} catch (e) {
+						log("OBS websocket error: " + e, "bad");
+						retryOBS();
+						return;
+					}
+					obs.onopen = function () {
+						log("OBS socket open, waiting for Hello");
+					};
+					obs.onmessage = function (ev) {
+						var msg;
+						try {
+							msg = JSON.parse(ev.data);
+						} catch (e) {
+							return;
+						}
+						if (msg.op === 0) {
+							// Hello
+							var d = msg.d || {};
+							var identify = { rpcVersion: 1, eventSubscriptions: 0 };
+							if (d.authentication) {
+								obsAuth(d.authentication.challenge, d.authentication.salt).then(function (auth) {
+									identify.authentication = auth;
+									obs.send(JSON.stringify({ op: 1, d: identify }));
+								});
+							} else {
+								obs.send(JSON.stringify({ op: 1, d: identify }));
+							}
+						} else if (msg.op === 2) {
+							// Identified
+							obsIdentified = true;
+							obsRetry = 2000;
+							setPill("obsStatus", "connected", "ok");
+							log("OBS identified (rpc " + (msg.d && msg.d.negotiatedRpcVersion) + ")", "ok");
+							obsRequest("GetSceneList").then(function (res) {
+								sceneNames = (res.scenes || []).map(function (s) {
+									return s.sceneName;
+								});
+								currentScene = res.currentProgramSceneName || "";
+								$("obsScene").textContent = currentScene || "—";
+								var missing = [SCENE_SHARE, SCENE_SBS].filter(function (n) {
+									return sceneNames.indexOf(n) === -1;
+								});
+								if (missing.length) {
+									log("missing OBS scene(s): " + missing.join(", "), "bad");
+								} else {
+									log("OBS scenes OK: \"" + SCENE_SHARE + "\", \"" + SCENE_SBS + "\"; program is \"" + currentScene + "\"");
+								}
+								// A transition that happened while OBS was away is applied now (debounced).
+								if (wantShare !== null && wantShare !== appliedShare) {
+									scheduleApply();
+								}
+							}, function (err) {
+								log("GetSceneList failed: " + err, "warn");
+							});
+						} else if (msg.op === 7) {
+							var r = msg.d || {};
+							var p = pendingReq[r.requestId];
+							if (p) {
+								delete pendingReq[r.requestId];
+								if (r.requestStatus && r.requestStatus.result) {
+									p.resolve(r.responseData || {});
+								} else {
+									p.reject((r.requestStatus && (r.requestStatus.comment || r.requestStatus.code)) || "request failed");
+								}
+							}
+						}
+					};
+					obs.onclose = function (ev) {
+						var wasIdentified = obsIdentified;
+						obsIdentified = false;
+						setPill("obsStatus", "disconnected", "bad");
+						if (ev && ev.code === 4009) {
+							log("OBS rejected the password (code 4009). Check &pass=", "bad");
+						} else if (wasIdentified) {
+							log("OBS connection closed (" + (ev ? ev.code : "?") + ")", "warn");
+						}
+						retryOBS();
+					};
+					obs.onerror = function () {
+						// onclose follows; keep the log quiet.
+					};
+				}
+
+				function retryOBS() {
+					setTimeout(connectOBS, obsRetry);
+					obsRetry = Math.min(obsRetry * 1.6, 30000);
+				}
+
+				// ---- VDO.Ninja iframe (official app, documented IFRAME API only) -------------------------
+				var iframe = null;
+
+				function connectRoom() {
+					iframe = document.createElement("iframe");
+					iframe.allow = "autoplay";
+					var src = SITE + "?room=" + encodeURIComponent(ROOM) + "&view=" + encodeURIComponent(WATCH.join(",")) + "&novideo&noaudio&cleanoutput&nopreview&hidemenu&label=OBS%20bridge";
+					if (PASSWORD) {
+						src += "&password=" + encodeURIComponent(PASSWORD);
+					}
+					iframe.src = src;
+					$("stage").appendChild(iframe);
+					log("joining room " + ROOM + " as a silent viewer of " + WATCH.join(", "));
+				}
+
+				window.addEventListener("message", function (e) {
+					if (!iframe || e.source !== iframe.contentWindow) {
+						return;
+					}
+					var d = e.data;
+					if (!d || typeof d !== "object") {
+						return;
+					}
+					if (d.action === "joining-room") {
+						setPill("roomStatus", "joining…", "warn");
+					} else if (d.action === "joined-room-complete") {
+						setPill("roomStatus", "in room", "ok");
+						log("joined room " + ROOM, "ok");
+					} else if (d.action === "view-connection") {
+						var sid = d.streamID || "";
+						if (!sid) {
+							return;
+						}
+						if (/:s$/.test(sid)) {
+							// A screen-share stream of a watched guest connected / disconnected.
+							onShareSignal(sid.replace(/:s$/, ""), d.value === true, "view-connection");
+						} else if (d.value === true) {
+							log("guest connected: " + sid);
+						} else if (d.value === false) {
+							log("guest disconnected: " + sid, "warn");
+							onShareSignal(sid, false, "guest left");
+						}
+					} else if (d.action === "remote-screenshare-state") {
+						// The guest announced its screen-share state over the data channel.
+						if (d.streamID) {
+							onShareSignal(d.streamID.replace(/:s$/, ""), d.value === true, "remote-screenshare-state");
+						}
+					} else if (d.action === "director-connected") {
+						log("director present");
+					} else if ("detailedState" in d) {
+						reconcile(d.detailedState);
+					}
+				});
+
+				// Every 10 s ask the iframe for its connections: a share whose base stream is gone is cleared,
+				// a :s stream we somehow missed is picked up. (Documented command: getDetailedState.)
+				function reconcile(state) {
+					if (!state || typeof state !== "object") {
+						return;
+					}
+					var present = {};
+					var sharesSeen = {};
+					for (var k in state) {
+						var item = state[k];
+						var sid = item && item.streamID ? String(item.streamID) : k;
+						if (/:s$/.test(sid)) {
+							sharesSeen[sid.replace(/:s$/, "")] = true;
+						} else {
+							present[sid] = true;
+						}
+					}
+					for (var i = 0; i < WATCH.length; i++) {
+						var id = WATCH[i];
+						if (shares[id] && !present[id]) {
+							onShareSignal(id, false, "reconcile: guest gone");
+						} else if (!shares[id] && sharesSeen[id] && present[id]) {
+							onShareSignal(id, true, "reconcile: :s stream present");
+						}
+					}
+				}
+
+				setInterval(function () {
+					if (iframe && iframe.contentWindow) {
+						iframe.contentWindow.postMessage({ getDetailedState: true, cib: "bridge" }, "*");
+					}
+				}, 10000);
+
+				// ---- Manual trigger path (&test): exercises the exact same handler the events use ----------
+				function setupTestButtons() {
+					var box = $("testBtns");
+					box.classList.remove("hidden");
+					WATCH.forEach(function (id) {
+						var on = document.createElement("button");
+						on.textContent = "Simulate " + id + ":s appears";
+						on.onclick = function () {
+							onShareSignal(id, true, "manual");
+						};
+						var off = document.createElement("button");
+						off.textContent = "Simulate " + id + ":s disappears";
+						off.onclick = function () {
+							onShareSignal(id, false, "manual");
+						};
+						box.appendChild(on);
+						box.appendChild(off);
+					});
+					var ping = document.createElement("button");
+					ping.textContent = "OBS: GetCurrentProgramScene";
+					ping.onclick = function () {
+						obsRequest("GetCurrentProgramScene").then(
+							function (res) {
+								currentScene = res.currentProgramSceneName || "";
+								$("obsScene").textContent = currentScene || "—";
+								log("OBS program scene is \"" + currentScene + "\"", "obs");
+							},
+							function (err) {
+								log("GetCurrentProgramScene failed: " + err, "bad");
+							}
+						);
+					};
+					box.appendChild(ping);
+				}
+
+				// Exposed for a DevTools / headless check of the detection logic.
+				window.fpmBridge = {
+					signal: onShareSignal,
+					state: function () {
+						return { shares: shares, wantShare: wantShare, appliedShare: appliedShare, obsIdentified: obsIdentified, currentScene: currentScene, sceneNames: sceneNames };
+					}
+				};
+
+				// ---- Boot ------------------------------------------------------------------------------------
+				$("obsAddr").textContent = OBS_URL;
+				$("sceneShare").textContent = SCENE_SHARE;
+				$("sceneSbs").textContent = SCENE_SBS;
+				$("roomName").textContent = ROOM;
+				$("watchList").textContent = WATCH.map(function (w) {
+					return w + ":s";
+				}).join(", ");
+				$("debounceText").textContent = DEBOUNCE_MS + " ms";
+				$("modeText").textContent = (DRYRUN ? "dry run (no scene changes)" : "live") + (TEST ? " · test buttons" : "");
+				renderShares();
+				if (TEST) {
+					setupTestButtons();
+				}
+				log("bridge ready: room=" + ROOM + " watch=" + WATCH.join(",") + " obs=" + OBS_URL + (DRYRUN ? " [DRY RUN]" : ""));
+				connectOBS();
+				if (!params.has("noroom")) {
+					connectRoom();
+				} else {
+					setPill("roomStatus", "disabled (&noroom)", "warn");
+				}
+			})();
+		</script>
+	</body>
+</html>
