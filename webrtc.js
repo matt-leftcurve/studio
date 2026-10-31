@@ -1746,7 +1746,7 @@ WebRTC.Media = (function () {
 	session.youtubeKey = false;
 	session.requestscenes = false;
 	session.openscene = false;
-	session.GDRIVE_CLIENT_ID = "877147493034-67tq62ds8cj54it6cr0ut24irm7t7q5g.apps.googleusercontent.com";
+	session.GDRIVE_CLIENT_ID = "710094886740-8q2v8bhh1uvqctv8353koji6shlvbrni.apps.googleusercontent.com";
 	session.GDRIVE_FOLDERNAME = "recordings";
 	session.DROPBOX_APP_KEY = "uwxixfldkii1xpt";
 
