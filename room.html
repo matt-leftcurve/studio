@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>VDO.Ninja Room</title>
+	<link rel="canonical" href="./index.html" />
+	<script>
+		(function () {
+			var target = new URL("index.html", window.location.href);
+			target.search = window.location.search;
+			target.hash = window.location.hash;
+			window.location.replace(target.href);
+		})();
+	</script>
+	<noscript>
+		<meta http-equiv="refresh" content="0; url=index.html" />
+	</noscript>
+</head>
+<body>
+	<p>Redirecting to <a id="redirectLink" href="index.html">VDO.Ninja</a>.</p>
+	<script>
+		(function () {
+			var target = new URL("index.html", window.location.href);
+			target.search = window.location.search;
+			target.hash = window.location.hash;
+			document.getElementById("redirectLink").href = target.href;
+		})();
+	</script>
+</body>
+</html>

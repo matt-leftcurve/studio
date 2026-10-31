@@ -1,0 +1,47 @@
+name: Validate translations
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/ci-checkTranslationKeys.js"
+      - ".github/ci-validateTranslations.js"
+      - "index.html"
+      - "main.js"
+      - "translations/translate.js"
+      - "translations/*.json"
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - ".github/ci-checkTranslationKeys.js"
+      - ".github/ci-validateTranslations.js"
+      - "index.html"
+      - "main.js"
+      - "translations/translate.js"
+      - "translations/*.json"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "20"
+
+      - name: Validate translations
+        run: node .github/ci-validateTranslations.js
+
+      - name: Check translation keys
+        run: node .github/ci-checkTranslationKeys.js
