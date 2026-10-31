@@ -1,10 +1,14 @@
 # FULLPORTMATT guest studio notes
 
-Three fork-specific pieces live here:
+Fork-specific pieces, one section each:
 
-1. **Branded guest join flow** (`join.html`) — section A below.
-2. **Hidden guest-side recording** (`&hiddenrecord`) — section B below.
-3. **Guest control bar polish** (`fpm-guestbar.css` / `fpm-guestbar.js`) — section C below.
+1. **Branded guest join flow** (`join.html`) — section A.
+2. **Hidden guest-side recording** (`&hiddenrecord`) — section B.
+3. **Guest control bar polish** (`fpm-guestbar.css` / `fpm-guestbar.js`) — section C.
+4. **Mic-only guests + minimal `?g=N` links** (`join.html`, `index.html`) — section D.
+5. **Waiting room** (`&hold`, `fpm-hold.css` / `fpm-hold.js`) — section E.
+6. **Upload status chip + leave/close hold page** (`fpm-upload.css` / `fpm-upload.js`, two hooks in `lib.js`) — section F.
+7. **Screen-share → OBS scene bridge** (`bridge.html`) — section G.
 
 ---
 
@@ -679,3 +683,278 @@ tooltip rule is `display: none` there; the rendering was verified by forcing
 (the script uses only `URLSearchParams`, `classList`, `MutationObserver`,
 `Object.keys`; no `?.`/`??`), Firefox/Safari, and a live director session
 toggling a guest remotely (that path also ends in the same `red` class).
+
+---
+
+# D. Mic-only guests and minimal `?g=N` links
+
+Branch: `deploy`. Files: `join.html`, one inline `<script>` in `index.html`.
+
+## Canonical guest links
+
+```
+https://matt-leftcurve.github.io/studio/?g=1     → seat 1, push G5EgnZp, room fpmshow
+https://matt-leftcurve.github.io/studio/?g=2     → seat 2, push G2FpmQx, room fpmshow
+```
+
+The seat map lives in the second inline `<script>` of `index.html` (right after
+the IE check, before anything else loads). If `location.search` matches
+`^\?g=\d+$` the page does `location.replace("./join.html?room=fpmshow&seat=N&id=<push>")`;
+an unknown seat number still lands on `join.html` (no `id`), which shows its
+"This invite link is incomplete" screen. Any other query string falls through
+to the stock app untouched. `join.html` keeps accepting explicit
+`?id=…&room=…` links and now also ignores `seat`/`g` when forwarding params.
+The quality / hiddenrecord / hold defaults are added by `join.html`, so the
+redirect URL stays minimal.
+
+## Mic-only joins
+
+- Landing: **Continue** (camera + mic) plus an always-visible ghost button
+  **Join with microphone only** that calls `getUserMedia({ audio })` only.
+- Automatic fallback: if the camera+mic request fails for a camera reason
+  (`NotAllowedError`, `NotFoundError`, `NotReadableError`, anything else after
+  the 1080p retry) the page immediately retries with `{ audio }` and, if that
+  works, continues in mic-only mode with a friendly in-panel note ("Your camera
+  is blocked, so we're bringing you in with audio only." / "No camera found…" /
+  "Another app has your camera…"). The blocked screen only appears when the
+  **microphone** itself is unavailable, with mic-specific copy.
+- Mic-only state: the preview stage shows a branded audio placeholder (gold mic
+  disc with two rings that scale with the live RMS level, "You're on mic",
+  "We can hear you loud and clear" while speaking); the chip reads **audio ·
+  your voice is what we'll record**; the camera select is replaced by
+  "Off · joining with microphone only" + **Use my camera instead**, which adds
+  a video track to the live stream and flips back to camera mode (a denied
+  retry stays in audio-only with a calm note; no blocked screen).
+- Join URL in mic-only mode carries `&videodevice=0` instead of a camera id.
+  `main.js:4794` maps `videodevice=0` to `session.videoDevice = 0`, and with
+  `&webcam&autostart` `lib.js:55616` calls `publishWebcam()` straight away with
+  `constraint.video = false` (`lib.js:56167`): an audio-only push. `&quality=0`
+  is still appended (harmless without video). No `audiobitrate` is added
+  anywhere; the OBS view links keep using `opusbitrate`.
+
+## `&hold` from the join flow (see section E)
+
+Every URL built by `join.html` now ends with `&hold` unless the invite link
+carries `&nohold` (handy for testing; not forwarded).
+
+---
+
+# E. Waiting room (`&hold`)
+
+Files: `fpm-hold.css`, `fpm-hold.js` (new, self-contained), two include lines
+in `index.html`. `lib.js` / `main.js` / `webrtc.js` untouched for this item.
+
+## How hold works in this codebase (verified)
+
+- `&hold` (alias `&queue3`, `main.js:7174`) sets `session.queue = true`,
+  `session.queueType = 3`: full isolation. The guest's camera/mic are captured
+  and the connection to the director exists, but publishing to peers is
+  deferred (`needsPublishing`), the guest sees nobody and the director gets
+  only the guest's control box with its label.
+- After the local publish `session.postPublish()` (`lib.js:45065`) calls
+  `youreWaitingToBeActivated()` → `warnUser(getTranslation("you-not-yet-activated"), false, false, 123)`:
+  a stock `#alertModal[data-modalID="123"]` + `#modalBackdrop`.
+- **Director control: the "Activate Guest" button** in the guest's control box
+  (`data-action-type="remove-queue"`, class `removeFromQueue`, `+` icon,
+  `lib.js:33298`). It is un-hidden only while the guest is queued/held. Clicking
+  it runs `remoteRemoveQueue()` → `session.directMigrateIssue(room, {justResetting:true}, UUID)`.
+  On the guest, `webrtc.js:8178` treats that as a hold reset (`session.queue = false`),
+  then `youveBeenActivated()` closes modal 123, publishes to every deferred
+  peer and shows the stock "The director has now allowed you to see others in
+  the room" chat overlay. Verified headless (director tab + held guest tab):
+  the button appears, clicking it releases the guest.
+
+## What the overlay does
+
+`fpm-hold.js` only runs when the URL has `hold`/`queue3`/`holdwithvideo`/`queue4`
+and none of the director/scene/clean params. It watches `<body>` for the
+stock modal 123 (MutationObserver, childList). When it appears the script
+adds `fpm-holding` to `<body>` (CSS hides the stock modal and its backdrop)
+and shows `#fpmHold`: full-screen FULLPORTMATT state, wordmark, three pulsing
+gold rings around a breathing disc, "Green room — You're *all set* — Matt will
+bring you in shortly — Your camera and microphone are connected. Nobody can
+see or hear you yet — you'll know the moment you're on." `z-index: 900`, so
+the guest control bar (995) stays usable (mute, settings, leave).
+A 400 ms poll removes the overlay as soon as `session.queue` is no longer a
+hold state (activation) or the overlay got detached (hangup replaces the
+body). The stock chat overlay on activation is left as is.
+
+---
+
+# F. Upload status chip and leave/close hold page (`&hiddenrecord`)
+
+Policy: invisible **file**, visible **status**. Files: `fpm-upload.css`,
+`fpm-upload.js` (new, self-contained), include lines in `index.html`, and two
+small hooks in `lib.js`.
+
+## `lib.js` changes (surgical, byte-level patch, mixed CRLF/LF preserved)
+
+- New `hiddenRecordUploadStatus(state, uploaded, recorded, finalized)` next to
+  the hiddenrecord helpers: dispatches a plain DOM `CustomEvent("fpm-drive-upload")`
+  on `document`. Nothing listens unless `fpm-upload.js` is active.
+- Inside `setupGoogleDriveUploader`: `failUpload()` fires `"failed"`;
+  `updateProgressBar()` fires `"progress"` (every recorded/uploaded chunk, the
+  same place that sends `msg.gdrive = {up, rec, state}` to the director button)
+  and `"complete"` (state 2, Drive's final response).
+- **Bug fix needed for item 5:** `session.hangup()` deletes every `session.*`
+  property 1.2 s after hangup (`lib.js` "delete session[i]"). The uploader kept
+  running but `updateProgressBar()` read `session.directorList.length` → TypeError
+  → caught by `uploadLoop()` → `failUpload()`. So a hidden-record upload that
+  outlived the Leave click always failed. `updateProgressBar()` now reads
+  `var directors = session.directorList || []` once. Verified: an upload that
+  finishes well after teardown completes and the local buffer is discarded.
+
+## Chip (item 4)
+
+Gated on the `hiddenrecord` URL param and no director/scene/clean params.
+Appears on the first progress event, top-right (`top: 36px`, under the stock
+stats strip): cloud icon with a pulsing arrow + percent (capped at 99 % until
+Drive confirms). Hover (desktop) or tap (toggles `.fpm-upload--open`) expands a
+card: "Uploading your recording — Please keep this tab open until your
+recording is fully uploaded." plus a rough time left computed from the last
+30 s of upload rate ("About 2 min left · still recording", "Less than a
+minute left", "Finishing up…"). Completion → ✓ **Upload complete**, auto-fades
+after 6 s. Failure → amber **Recording saved** ("The upload didn't finish, but
+your recording is kept safely on this device and we'll recover it."), fades
+after 15 s. A second recording resets the chip. Hidden when nothing is
+uploading; the stock `#progressContainer` stays hidden as before.
+
+## Leave / close hold page (item 5)
+
+`hangup()` copies `#hangupTemplate` into `#main`, which is the `<body>` itself,
+so the whole page (chip included) is replaced by the stock 👋 + Refresh. A
+MutationObserver on `<body>` detects `#hangupContainer` outside the template.
+If an upload is still **pending** (progress seen, no complete/failed yet), the
+script appends `#fpmUploadHold` (z 1100): "One more moment — Please *keep this
+tab open* until the upload is done", progress bar, "43 % uploaded · 256 KB of
+594 KB", time left, "Closing this tab now would interrupt the upload."
+Completion → ✓ "All done — you can *close this tab* — Thanks for coming on the
+show!"; failure → "Your recording is *safe* — you can close this tab" with the
+recovery note. Nothing pending → stock behaviour (verified: no hold page, no chip).
+`beforeunload`: the script's own listener calls `preventDefault()` and sets
+`returnValue` **only while pending** (the stock `confirmUnload` is removed by
+`session.hangup()`, so after Leave this is the only guard). Remote hangup by
+the director goes through the same `hangup()` and is covered.
+
+---
+
+# G. Screen-share → OBS scene bridge (`bridge.html`)
+
+Self-contained page for a Chrome tab on the Mac mini. It embeds the official,
+unmodified app in an iframe and uses only documented IFRAME API events/commands
+(`examples/iframeapi.md`): `view-connection`, `remote-screenshare-state`,
+`joining-room`/`joined-room-complete`, `getDetailedState`.
+
+```
+https://matt-leftcurve.github.io/studio/bridge.html?room=fpmshow&watch=G5EgnZp,G2FpmQx
+```
+
+Defaults (all overridable): `obs=ws://127.0.0.1:4455`, `pass=bender-mini-4k`,
+`sharescene=Guest - Share`, `sbsscene=Guest - SBS`, `debounce=2000`,
+`site=./` (where the app lives), `password=` (room password if any).
+Flags: `&test` adds manual trigger buttons, `&dryrun` logs scene switches
+instead of sending them, `&noroom` skips the iframe (OBS-only check).
+Note: the default OBS password is in the page source of a public repo; it only
+reaches the loopback address, but pass `&pass=` and change the default if that
+matters.
+
+## Detection (why it listens to what it listens to)
+
+In this codebase a room screen share is **type 3**: the share rides on the
+guest's existing connection as a `<UUID>_screen` sub-stream whose stream ID is
+`<id>:s` (`webrtc.js:24453`), not a separate room stream. A viewer therefore
+has to be connected to the guest's base stream, so the iframe is
+`./?room=fpmshow&view=G5EgnZp,G2FpmQx&novideo&noaudio&cleanoutput&nopreview&hidemenu&label=OBS bridge`
+(data-only connections; `&view=` is what `main.js:4150` parses, a `:s` suffix
+there is folded back to the base id anyway). Signals, all through one
+`onShareSignal(baseId, on, source)`:
+
+- `remote-screenshare-state` (value true/false, `streamID` = base id): the
+  guest announced its share state over the data channel (`webrtc.js:10633`).
+- `view-connection` with a `streamID` ending in `:s`: the `_screen` sub-stream
+  connected/disconnected (`webrtc.js:12099`, `:24324`).
+- `view-connection` false for the base id: the guest left → share off.
+- Every 10 s `getDetailedState` reconciles: a share whose base stream is gone
+  is cleared; a `:s` entry present while we think it is idle is picked up.
+
+Only watched ids count. The state is "any watched share live?". Transitions are
+debounced 2 s; a flicker inside the window collapses into a single evaluation.
+`none → some` sends `SetCurrentProgramScene "Guest - Share"`, `some → none`
+sends `"Guest - SBS"`. Nothing is sent at startup (Matt's current scene is left
+alone until a share actually changes).
+
+## OBS side
+
+obs-websocket v5 over `ws://127.0.0.1:4455` (Chrome allows `ws://` to loopback
+from an https page). Handshake: Hello → sha256/base64 challenge-salt auth →
+Identify (`eventSubscriptions: 0`) → Identified, then `GetSceneList` verifies
+both scene names exist and shows the current program scene. Reconnect with
+backoff (2 s → 30 s); code 4009 is reported as a wrong password. **Never
+switches when OBS is unreachable**: the wanted scene is logged as
+"NOT switching" and applied once OBS is back (debounced). A missing scene name
+is also refused.
+
+## Verified (headless, fake OBS v5 server, synthetic signals)
+
+auth handshake; scene list check; no switch at startup; share → Share after the
+debounce; two shares then one → stays; flicker → one switch to SBS; exactly two
+SetCurrentProgramScene; unwatched id ignored; events not from the bridge's
+iframe ignored; OBS killed → "NOT switching", restart → pending switch
+applied; `&dryrun` logs only; wrong password → clear log line, no switching.
+**Not** verified: the live room path (needs real guests sharing); see recipe.
+
+## Live-test recipe (bender, on the Mac mini)
+
+1. OBS: Tools → WebSocket Server Settings: enabled, port 4455, password set;
+   scenes `Guest - Share` and `Guest - SBS` exist (the Share scene already has a
+   "Browser Share" source on `G5EgnZp:s`).
+2. Open `https://matt-leftcurve.github.io/studio/bridge.html?room=fpmshow&watch=G5EgnZp,G2FpmQx&dryrun&test`
+   in Chrome. The OBS card must read **connected** and the log "OBS scenes OK …
+   program is <current>". If it says "rejected the password", add `&pass=`.
+3. Join as a guest on another device via `?g=1` (activate from the director if
+   held), press the stock screen-share button (or any `&screenshare` link for
+   `G5EgnZp`). Within ~2 s the log should show `share appeared: G5EgnZp:s
+   (remote-screenshare-state …)` and `DRY RUN: would set program scene to "Guest - Share"`;
+   stopping the share logs `share disappeared …` and `… "Guest - SBS"`.
+4. Repeat with seat 2; two shares at once must not switch back until both stop.
+5. Drop `&dryrun` (keep the tab open on the mini). Switch program away from the
+   two scenes, start a share: program must go to Guest - Share; stop → Guest - SBS.
+6. Kill-switch check: close OBS while a share is live, stop the share → log says
+   NOT switching; reopen OBS → the bridge reconnects and applies SBS.
+7. Leave the tab open during the show; the "Shares live" pill and the log are
+   the health indicator. A pinned Chrome tab is enough; no extension needed.
+
+---
+
+# H. Test results for sections D–G (2026-10-31, headless Google Chrome 138, fake media)
+
+Static server `python3 -m http.server 47191 --bind 127.0.0.1` in the checkout;
+CDP harnesses kept outside the repo (`/tmp/fpm-final-test/`): a mock Drive
+resumable endpoint (308/200/500/slow) and a fake obs-websocket v5 server.
+Rooms were random (`fpmtest…`) on the stock signaling; no recording was
+started on the live room and OBS program was never touched.
+
+| area | checks | result |
+| --- | --- | --- |
+| `?g=1` / `?g=2` / `?g=9` redirect | `join.html?room=fpmshow&seat=N&id=<push>`; unknown seat → incomplete-link screen | pass |
+| mic-only button | audio stage, hidden video, chip "audio", camera row, meter + rings animate, URL has `&videodevice=0`, `&hold`, no camera id, "Use my camera instead" flips back | pass |
+| camera denied / mic granted | device screen (no retry wall), friendly note, `&videodevice=0`; camera retry denied stays audio-only; mic denied too → "Microphone access was blocked" | pass |
+| camera+mic path | unchanged URL shape, `1080p` chip, `&nohold` respected, passthrough intact, no JS exceptions | pass |
+| hold overlay | stock modal 123 present but hidden, overlay opaque, control bar above it, copy present | pass |
+| director | "Activate Guest" button visible for the held guest; click → `session.queue=false`, overlay + stock modal gone | pass |
+| upload chip | appears during a real `recordLocalVideo` + mock Drive upload, 51 % mid-way, stock progress bar hidden, tap expands card, `beforeunload` guarded, → "Upload complete", guard released, auto-fade, local buffer discarded | pass |
+| failure | second recording → chip again → 500 from Drive → "Recording saved" amber, buffer kept, fades | pass |
+| leave while uploading | stock 👋 rendered, hold page with bar "43 % uploaded · 256 KB of 594 KB", guard on, completes **after** session teardown → "All done — you can close this tab", guard off | pass |
+| control | guest without a pending upload → stock hangup, no hold page, no chip | pass |
+| bridge | 18 checks listed in section G | pass |
+| CI | `ci-validateTranslations.js`, `ci-checkTranslationKeys.js`, `node --check` on lib.js/main.js/new scripts | pass |
+
+Not tested: real Chrome 80 runtime (new code uses `var`, plain functions,
+`URLSearchParams`, `MutationObserver`, `CustomEvent`, `Element.closest`,
+`crypto.subtle` in bridge.html only; no `?.`/`??`), real phones, the real
+`beforeunload` dialog (checked via a synthetic cancelable event), a real
+director Drive session, and the bridge against a live room/OBS.
+Two implementation gotchas worth knowing: `requestAnimationFrame` never fires
+in a background tab, so the overlays use short timers for their fade-in; and
+`#hangupContainer` always exists inside the hidden `#hangupTemplate`, so
+"hung up" means that element outside the template.
