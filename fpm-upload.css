@@ -1,0 +1,376 @@
+/* FULLPORTMATT upload status (&hiddenrecord). Policy: the recording file stays invisible,
+   its upload status is visible. Rendered by fpm-upload.js. */
+
+#fpmUpload {
+	position: fixed;
+	top: 36px; /* below the stock stats / room strip */
+	right: 14px;
+	z-index: 1200;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	color: #f3ead8;
+	opacity: 0;
+	transform: translateY(-6px);
+	transition: opacity 0.35s ease, transform 0.35s ease;
+	pointer-events: none;
+}
+
+#fpmUpload.fpm-upload--on {
+	opacity: 1;
+	transform: translateY(0);
+	pointer-events: auto;
+}
+
+#fpmUpload.fpm-upload--fading {
+	opacity: 0;
+	transform: translateY(-6px);
+	pointer-events: none;
+	transition: opacity 1.2s ease, transform 1.2s ease;
+}
+
+.fpm-upload__chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	padding: 7px 13px 7px 10px;
+	border-radius: 999px;
+	border: 1px solid rgba(201, 161, 95, 0.5);
+	background: rgba(10, 22, 30, 0.86);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	cursor: pointer;
+	float: right;
+}
+
+.fpm-upload__chip:focus-visible {
+	outline: 2px solid #7fd4c1;
+	outline-offset: 2px;
+}
+
+.fpm-upload__icon {
+	width: 18px;
+	height: 18px;
+	fill: none;
+	stroke: rgba(201, 161, 95, 1);
+	stroke-width: 1.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	flex: none;
+}
+
+.fpm-upload__icon--check {
+	display: none;
+	stroke: #7fd4c1;
+}
+
+.fpm-upload__icon--warn {
+	display: none;
+	stroke: #e0b36a;
+}
+
+.fpm-upload__pct {
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	font-weight: 700;
+	font-size: 13px;
+	min-width: 3.2em;
+	text-align: right;
+}
+
+/* Little upload arrow inside the cloud pulses while bytes move. */
+#fpmUpload[data-state="progress"] .fpm-upload__arrow {
+	animation: fpmUploadArrow 1.4s ease-in-out infinite;
+}
+
+@keyframes fpmUploadArrow {
+	0%,
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	50% {
+		transform: translateY(-2px);
+		opacity: 0.55;
+	}
+}
+
+#fpmUpload[data-state="complete"] .fpm-upload__chip {
+	border-color: rgba(127, 212, 193, 0.6);
+}
+
+#fpmUpload[data-state="complete"] .fpm-upload__icon--cloud {
+	display: none;
+}
+
+#fpmUpload[data-state="complete"] .fpm-upload__icon--check {
+	display: block;
+}
+
+#fpmUpload[data-state="complete"] .fpm-upload__pct {
+	font-family: inherit;
+	min-width: 0;
+	color: #7fd4c1;
+}
+
+#fpmUpload[data-state="failed"] .fpm-upload__chip {
+	border-color: rgba(224, 179, 106, 0.6);
+}
+
+#fpmUpload[data-state="failed"] .fpm-upload__icon--cloud {
+	display: none;
+}
+
+#fpmUpload[data-state="failed"] .fpm-upload__icon--warn {
+	display: block;
+}
+
+#fpmUpload[data-state="failed"] .fpm-upload__pct {
+	font-family: inherit;
+	min-width: 0;
+	color: #e0b36a;
+}
+
+/* Expanded card: hover on desktop, tap (click toggles .fpm-upload--open) on touch. */
+.fpm-upload__card {
+	clear: both;
+	margin-top: 8px;
+	width: 290px;
+	max-width: calc(100vw - 28px);
+	padding: 14px 16px;
+	border-radius: 12px;
+	border: 1px solid rgba(201, 161, 95, 0.22);
+	background: rgba(14, 29, 39, 0.96);
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+	font-size: 13px;
+	line-height: 1.45;
+	color: #a9b3b8;
+	opacity: 0;
+	transform: translateY(-4px);
+	visibility: hidden;
+	transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+#fpmUpload:hover .fpm-upload__card,
+#fpmUpload.fpm-upload--open .fpm-upload__card,
+#fpmUpload .fpm-upload__chip:focus-visible + .fpm-upload__card {
+	opacity: 1;
+	transform: translateY(0);
+	visibility: visible;
+	transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s;
+}
+
+.fpm-upload__title {
+	margin: 0 0 4px;
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-size: 17px;
+	font-weight: 600;
+	color: #f3ead8;
+}
+
+.fpm-upload__text {
+	margin: 0;
+}
+
+.fpm-upload__eta {
+	margin: 8px 0 0;
+	font-size: 12px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: rgba(201, 161, 95, 1);
+}
+
+#fpmUpload[data-state="failed"] .fpm-upload__eta {
+	color: #e0b36a;
+}
+
+/* ---- Hold page: the guest left (or the session ended) while an upload was still running. */
+#fpmUploadHold {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1100;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 32px 24px;
+	text-align: center;
+	color: #f3ead8;
+	background: #0a161e;
+	background-image: radial-gradient(1200px 600px at 50% -10%, rgba(127, 212, 193, 0.09), transparent 60%), radial-gradient(900px 500px at 100% 100%, rgba(201, 161, 95, 0.08), transparent 55%);
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	opacity: 0;
+	transition: opacity 0.5s ease;
+}
+
+#fpmUploadHold.fpm-upload-hold--on {
+	opacity: 1;
+}
+
+.fpm-upload-hold__wordmark {
+	position: absolute;
+	top: 22px;
+	left: 28px;
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+
+.fpm-upload-hold__name {
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-weight: 700;
+	font-size: 18px;
+	letter-spacing: 0.22em;
+	color: rgba(201, 161, 95, 1);
+}
+
+.fpm-upload-hold__sub {
+	font-size: 11px;
+	letter-spacing: 0.32em;
+	text-transform: uppercase;
+	color: #7fd4c1;
+}
+
+.fpm-upload-hold__icon {
+	width: 64px;
+	height: 64px;
+	margin-bottom: 26px;
+	fill: none;
+	stroke: rgba(201, 161, 95, 1);
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+#fpmUploadHold[data-state="progress"] .fpm-upload-hold__icon .fpm-upload__arrow {
+	animation: fpmUploadArrow 1.4s ease-in-out infinite;
+}
+
+.fpm-upload-hold__eyebrow {
+	display: inline-block;
+	font-size: 12px;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	color: #7fd4c1;
+	margin-bottom: 18px;
+}
+
+.fpm-upload-hold__title {
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-weight: 600;
+	font-size: clamp(30px, 4.6vw, 46px);
+	line-height: 1.1;
+	margin: 0 0 14px;
+	max-width: 760px;
+}
+
+.fpm-upload-hold__title em {
+	font-style: italic;
+	color: rgba(201, 161, 95, 1);
+}
+
+.fpm-upload-hold__lede {
+	font-size: 18px;
+	color: #a9b3b8;
+	margin: 0 0 30px;
+	max-width: 520px;
+}
+
+.fpm-upload-hold__bar {
+	width: 100%;
+	max-width: 440px;
+	height: 10px;
+	border-radius: 999px;
+	background: #0e1d27;
+	border: 1px solid rgba(201, 161, 95, 0.22);
+	overflow: hidden;
+	position: relative;
+}
+
+.fpm-upload-hold__fill {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 0%;
+	border-radius: 999px;
+	background: linear-gradient(90deg, #7fd4c1, rgba(201, 161, 95, 1));
+	transition: width 0.6s ease;
+}
+
+.fpm-upload-hold__meta {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	max-width: 440px;
+	margin-top: 10px;
+	font-size: 13px;
+	color: #6f7d85;
+}
+
+.fpm-upload-hold__meta strong {
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	color: #f3ead8;
+	font-weight: 700;
+}
+
+#fpmUploadHold[data-state="complete"] .fpm-upload-hold__bar,
+#fpmUploadHold[data-state="complete"] .fpm-upload-hold__meta,
+#fpmUploadHold[data-state="failed"] .fpm-upload-hold__bar,
+#fpmUploadHold[data-state="failed"] .fpm-upload-hold__meta {
+	display: none;
+}
+
+#fpmUploadHold[data-state="complete"] .fpm-upload-hold__icon {
+	stroke: #7fd4c1;
+}
+
+#fpmUploadHold[data-state="failed"] .fpm-upload-hold__icon {
+	stroke: #e0b36a;
+}
+
+.fpm-upload-hold__fine {
+	margin: 26px 0 0;
+	font-size: 13px;
+	color: #6f7d85;
+	max-width: 440px;
+}
+
+@media (max-width: 640px) {
+	#fpmUpload {
+		top: 32px;
+		right: 10px;
+	}
+
+	.fpm-upload__chip {
+		font-size: 12px;
+		padding: 6px 11px 6px 9px;
+	}
+
+	#fpmUploadHold {
+		padding: 72px 20px 40px;
+	}
+
+	.fpm-upload-hold__wordmark {
+		left: 18px;
+		top: 16px;
+	}
+
+	.fpm-upload-hold__lede {
+		font-size: 16px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fpm-upload__arrow {
+		animation: none !important;
+	}
+}

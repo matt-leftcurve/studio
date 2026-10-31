@@ -58963,6 +58963,7 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 			rejectCompletion(error);
 		}
 		errorlog(error);
+		hiddenRecordUploadStatus("failed", totalChunksUploaded, totalChunksRecorded, finalized);
 	}
 
 	gdrive.promise = false;
@@ -59375,6 +59376,8 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 		if (typeof options.onProgress === "function") {
 			options.onProgress(totalChunksUploaded);
 		}
+		// session is torn down 1.2 s after hangup; a hidden-record upload may still be finishing then.
+		var directors = session.directorList || [];
 		// Implementation unchanged
 		if (state == 2) {
 			setTimeout(function () {
@@ -59383,10 +59386,11 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 				}
 			}, 1000);
 			getById("progressBar").style.width = "100%";
+			hiddenRecordUploadStatus("complete", totalChunksUploaded, totalChunksRecorded, finalized);
 			var msg = {};
 			msg.gdrive = { up: parseInt(totalChunksUploaded / 1024), rec: parseInt(totalChunksUploaded / 1024), state: state };
-			for (var i = 0; i < session.directorList.length; i++) {
-				msg.UUID = session.directorList[i];
+			for (var i = 0; i < directors.length; i++) {
+				msg.UUID = directors[i];
 				session.sendMessage(msg, msg.UUID);
 			}
 		} else if (totalChunksRecorded > 0) {
@@ -59394,11 +59398,12 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 			var bytesLeft = parseInt((totalChunksRecorded - totalChunksUploaded) / 1024);
 			getById("progressBar").style.width = progressPercentage + "%";
 			getById("progressBar").innerHTML = "Upload progress to Google Drive: " + progressPercentage.toFixed(2) + "%, with " + convertKilobytes(bytesLeft) + " left";
+			hiddenRecordUploadStatus("progress", totalChunksUploaded, totalChunksRecorded, finalized);
 
 			var msg = {};
 			msg.gdrive = { up: parseInt(totalChunksUploaded / 1024), rec: parseInt(totalChunksRecorded / 1024), state: state };
-			for (var i = 0; i < session.directorList.length; i++) {
-				msg.UUID = session.directorList[i];
+			for (var i = 0; i < directors.length; i++) {
+				msg.UUID = directors[i];
 				session.sendMessage(msg, msg.UUID);
 			}
 		}
@@ -61465,6 +61470,15 @@ function hiddenRecordRead(prefix, onEntry, mode) {
 			};
 		});
 	});
+}
+
+// Guest-side upload status for the FULLPORTMATT chip / hold page (fpm-upload.js). Fired by the
+// Drive uploader's own progress and failure paths; a plain DOM event, nothing listens unless the
+// fork's &hiddenrecord guest UI is loaded.
+function hiddenRecordUploadStatus(state, uploaded, recorded, finalized) {
+	try {
+		document.dispatchEvent(new CustomEvent("fpm-drive-upload", { detail: { state: state, uploaded: uploaded, recorded: recorded, finalized: !!finalized } }));
+	} catch (e) {}
 }
 
 function hiddenRecordDiscard(prefix) {
