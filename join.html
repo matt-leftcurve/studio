@@ -257,6 +257,24 @@
 				color: var(--soft);
 			}
 
+			.landing__alt {
+				margin-top: 18px;
+			}
+
+			.landing__alt .btn--ghost {
+				gap: 8px;
+			}
+
+			.landing__alt svg {
+				width: 16px;
+				height: 16px;
+				fill: none;
+				stroke: var(--gold);
+				stroke-width: 1.8;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
 			/* Device check */
 			.check {
 				display: grid;
@@ -292,6 +310,106 @@
 				object-fit: cover;
 				transform: scaleX(-1);
 				background: #000;
+			}
+
+			/* Audio-only state: the video is replaced by a branded placeholder + live level ring. */
+			.stage--audio video,
+			.stage--audio .stage__hint {
+				display: none;
+			}
+
+			.audio-stage {
+				display: none;
+			}
+
+			.stage--audio .audio-stage {
+				display: flex;
+			}
+
+			.audio-stage {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 18px;
+				padding: 24px 24px 64px; /* bottom room for the chip */
+				background: radial-gradient(500px 300px at 50% 45%, rgba(127, 212, 193, 0.1), transparent 70%), var(--ink-2);
+			}
+
+			.audio-stage__eyebrow {
+				font-size: 11px;
+				letter-spacing: 0.3em;
+				text-transform: uppercase;
+				color: var(--teal);
+			}
+
+			.audio-stage__orb {
+				position: relative;
+				width: 128px;
+				height: 128px;
+			}
+
+			.audio-stage__ring {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				border-radius: 50%;
+				border: 1px solid var(--line-strong);
+				transform: scale(1);
+				transition: transform 70ms linear, opacity 70ms linear;
+				opacity: 0.9;
+			}
+
+			.audio-stage__ring--outer {
+				border-color: var(--line);
+				opacity: 0.6;
+			}
+
+			.audio-stage__disc {
+				position: absolute;
+				top: 18px;
+				left: 18px;
+				right: 18px;
+				bottom: 18px;
+				border-radius: 50%;
+				background: linear-gradient(180deg, rgba(221, 184, 120, 1), rgba(201, 161, 95, 1));
+				box-shadow: 0 14px 34px rgba(201, 161, 95, 0.28);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.audio-stage__disc svg {
+				width: 38px;
+				height: 38px;
+				fill: none;
+				stroke: #1a1408;
+				stroke-width: 1.9;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.audio-stage__title {
+				font-family: var(--serif);
+				font-size: 26px;
+				font-weight: 600;
+				margin: 0;
+			}
+
+			.audio-stage__sub {
+				margin: -14px 0 0;
+				font-size: 14px;
+				color: var(--muted);
+			}
+
+			.audio-stage__sub.ok {
+				color: var(--teal);
 			}
 
 			.stage__corner {
@@ -556,6 +674,77 @@
 				color: var(--danger);
 			}
 
+			/* Friendly in-panel note (e.g. camera blocked, continuing with audio only). */
+			.note {
+				display: flex;
+				gap: 12px;
+				align-items: flex-start;
+				padding: 12px 14px;
+				margin-bottom: 18px;
+				border-radius: 10px;
+				background: var(--teal-soft);
+				border: 1px solid rgba(127, 212, 193, 0.35);
+				font-size: 14px;
+				color: var(--cream);
+			}
+
+			.note svg {
+				flex: none;
+				width: 18px;
+				height: 18px;
+				margin-top: 2px;
+				fill: none;
+				stroke: var(--teal);
+				stroke-width: 1.8;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.note p {
+				margin: 0;
+			}
+
+			.note p + p {
+				margin-top: 4px;
+				color: var(--muted);
+				font-size: 13px;
+			}
+
+			.cam-off {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 12px 14px;
+				border: 1px dashed var(--line-strong);
+				border-radius: 10px;
+				color: var(--muted);
+				font-size: 14px;
+			}
+
+			.linkbtn {
+				background: none;
+				border: 0;
+				padding: 0;
+				color: var(--gold);
+				font-size: 13px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				cursor: pointer;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+				white-space: nowrap;
+			}
+
+			.linkbtn:hover {
+				color: var(--cream);
+			}
+
+			.linkbtn:disabled {
+				opacity: 0.5;
+				cursor: wait;
+			}
+
 			.actions {
 				margin-top: 24px;
 			}
@@ -690,12 +879,30 @@
 					width: 100%;
 					min-width: 0;
 				}
+
+				.audio-stage {
+					gap: 12px;
+					padding-bottom: 56px;
+				}
+
+				.audio-stage__orb {
+					width: 96px;
+					height: 96px;
+				}
+
+				.audio-stage__title {
+					font-size: 22px;
+				}
 			}
 
 			@media (prefers-reduced-motion: reduce) {
 				.fade-in,
 				.spinner {
 					animation: none;
+				}
+
+				.audio-stage__ring {
+					transition: none;
 				}
 			}
 		</style>
@@ -718,6 +925,12 @@
 					<p class="lede">You're about to join <strong>Matt's show</strong>. Have a great time!</p>
 					<button id="continueBtn" class="btn btn--primary" type="button">Continue</button>
 					<p class="landing__fine">Next, your browser will ask for camera and microphone access.</p>
+					<div class="landing__alt">
+						<button id="micOnlyBtn" class="btn btn--ghost" type="button">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
+							Join with microphone only
+						</button>
+					</div>
 				</div>
 			</section>
 
@@ -725,7 +938,7 @@
 			<section id="waiting" class="screen hidden">
 				<div class="notice fade-in">
 					<div class="spinner"></div>
-					<h2>Asking for your camera and mic</h2>
+					<h2 id="waitingTitle">Asking for your camera and mic</h2>
 					<p>Look for the permission prompt in your browser and choose <strong>Allow</strong>.</p>
 				</div>
 			</section>
@@ -758,6 +971,18 @@
 				<div class="check fade-in">
 					<div class="stage">
 						<video id="preview" autoplay playsinline muted></video>
+						<div class="audio-stage" aria-live="polite">
+							<span class="audio-stage__eyebrow">Audio only</span>
+							<div class="audio-stage__orb">
+								<span id="audioRingOuter" class="audio-stage__ring audio-stage__ring--outer"></span>
+								<span id="audioRing" class="audio-stage__ring"></span>
+								<span class="audio-stage__disc">
+									<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path><path d="M8 21h8"></path></svg>
+								</span>
+							</div>
+							<p class="audio-stage__title">You're on mic</p>
+							<p id="audioStageSub" class="audio-stage__sub">Say something to see your level</p>
+						</div>
 						<span class="stage__corner stage__corner--tl"></span>
 						<span class="stage__corner stage__corner--tr"></span>
 						<span class="stage__corner stage__corner--bl"></span>
@@ -773,6 +998,14 @@
 						<h2>Let's check your devices</h2>
 						<p class="panel__sub">Pick what the show should use. You can change these later from the studio settings.</p>
 
+						<div id="modeNote" class="note hidden" role="status">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>
+							<div>
+								<p id="modeNoteTitle"></p>
+								<p id="modeNoteText"></p>
+							</div>
+						</div>
+
 						<div class="field">
 							<label for="nameInput">Your name <small>shown on screen</small></label>
 							<input id="nameInput" class="control" type="text" maxlength="60" autocomplete="name" placeholder="How should we introduce you?" />
@@ -781,6 +1014,10 @@
 						<div class="field">
 							<label for="cameraSelect">Camera</label>
 							<select id="cameraSelect" class="control"></select>
+							<div id="camOff" class="cam-off hidden">
+								<span>Off &middot; joining with microphone only</span>
+								<button id="useCameraBtn" class="linkbtn" type="button">Use my camera instead</button>
+							</div>
 						</div>
 
 						<div class="field">
@@ -839,7 +1076,7 @@
 				roomName = roomName.trim().replace(/[\W]+/g, "_");
 
 				// Invite-link params this page consumes or sets itself; all others pass through to the studio URL.
-				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo"];
+				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo", "hold", "nohold", "seat", "g"];
 
 				// --- State -----------------------------------------------------------------
 				var stream = null; // live MediaStream shown in the preview
@@ -850,6 +1087,7 @@
 				var meterPeakHold = 0;
 				var meterPeakAt = 0;
 				var headphones = false; // false = "No" (processing on), true = "Yes"
+				var micOnly = false; // true = joining with microphone only (no camera track, &videodevice=0)
 				var sinkSupported = typeof HTMLMediaElement !== "undefined" && typeof HTMLMediaElement.prototype.setSinkId === "function";
 				var toneAudio = null;
 				var toneTimer = 0;
@@ -1023,8 +1261,15 @@
 					var chip = $("resChip");
 					var tracks = stream ? stream.getVideoTracks() : [];
 					if (!tracks.length) {
-						chip.textContent = "no video";
-						chip.dataset.state = "pending";
+						if (micOnly) {
+							chip.textContent = "audio";
+							chip.dataset.state = "live";
+							chip.title = "";
+							$("resText").textContent = "your voice is what we'll record";
+						} else {
+							chip.textContent = "no video";
+							chip.dataset.state = "pending";
+						}
 						return;
 					}
 					var s = tracks[0].getSettings ? tracks[0].getSettings() : {};
@@ -1054,16 +1299,16 @@
 					log("capture resolution " + w + "x" + h + fps);
 				}
 
-				function describeError(err) {
+				function describeError(err, audioOnly) {
 					var name = err && err.name ? err.name : "";
-					var title = "We couldn't reach your camera or mic";
-					var text = "The studio needs both to put you on the show.";
+					var title = audioOnly ? "We couldn't reach your microphone" : "We couldn't reach your camera or mic";
+					var text = audioOnly ? "The studio needs your microphone to put you on the show." : "The studio needs both to put you on the show.";
 					var steps = true;
 					if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
-						title = "Camera and mic access was blocked";
+						title = audioOnly ? "Microphone access was blocked" : "Camera and mic access was blocked";
 						text = "No worries. Allow access in your browser and try again.";
 					} else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-						title = "No camera or microphone found";
+						title = audioOnly ? "No microphone found" : "No camera or microphone found";
 						text = "Plug one in (or enable it), then try again.";
 						steps = false;
 					} else if (name === "NotReadableError" || name === "TrackStartError") {
@@ -1085,14 +1330,82 @@
 					log("getUserMedia failed: " + name + " " + (err && err.message ? err.message : ""));
 				}
 
-				function startPreview() {
-					if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-						$("blockedTitle").textContent = "This browser can't join the studio";
-						$("blockedText").textContent = "Please open this link in a current version of Chrome, Edge, Firefox or Safari.";
-						$("blockedSteps").classList.add("hidden");
-						show("blocked");
+				// Which browser error made us fall back to audio only, and the friendly copy for it.
+				function cameraFallbackNote(err) {
+					var name = err && err.name ? err.name : "";
+					if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
+						return { title: "Your camera is blocked, so we're bringing you in with audio only.", text: "That's completely fine for the show. If you'd like video later, allow the camera in your browser and use \"Use my camera instead\"." };
+					}
+					if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+						return { title: "No camera found, so we're bringing you in with audio only.", text: "Plug one in and press \"Use my camera instead\" if you want video." };
+					}
+					if (name === "NotReadableError" || name === "TrackStartError") {
+						return { title: "Another app has your camera, so we're bringing you in with audio only.", text: "Close Zoom, Teams or OBS and press \"Use my camera instead\" if you want video." };
+					}
+					return { title: "Your camera isn't available, so we're bringing you in with audio only.", text: "That's completely fine for the show." };
+				}
+
+				function showModeNote(note) {
+					if (!note) {
+						$("modeNote").classList.add("hidden");
 						return;
 					}
+					$("modeNoteTitle").textContent = note.title;
+					$("modeNoteText").textContent = note.text || "";
+					$("modeNote").classList.remove("hidden");
+				}
+
+				// Reflect camera / mic-only mode in the preview stage, the camera field and the chip.
+				function applyMode() {
+					var stage = document.querySelector(".stage");
+					if (micOnly) {
+						stage.classList.add("stage--audio");
+						$("cameraSelect").classList.add("hidden");
+						$("camOff").classList.remove("hidden");
+						$("useCameraBtn").disabled = false;
+						$("useCameraBtn").textContent = "Use my camera instead";
+					} else {
+						stage.classList.remove("stage--audio");
+						$("cameraSelect").classList.remove("hidden");
+						$("camOff").classList.add("hidden");
+					}
+					updateResolutionChip();
+				}
+
+				// Shared tail of every successful getUserMedia: show the device screen.
+				function gotStream(s) {
+					stopTracks(stream);
+					stream = s;
+					attachPreview();
+					show("check");
+					applyMode();
+					startMeter();
+					ensureAudioContext();
+					return refreshDeviceLists().then(function () {
+						updateJoinState();
+						setTimeout(function () {
+							$("nameInput").focus();
+						}, 50);
+					});
+				}
+
+				function unsupportedBrowser() {
+					$("blockedTitle").textContent = "This browser can't join the studio";
+					$("blockedText").textContent = "Please open this link in a current version of Chrome, Edge, Firefox or Safari.";
+					$("blockedSteps").classList.add("hidden");
+					show("blocked");
+				}
+
+				// Camera + mic. If the camera part fails (blocked, missing, busy) but the mic is
+				// available, continue automatically with audio only instead of a retry wall.
+				function startPreview() {
+					if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+						unsupportedBrowser();
+						return;
+					}
+					micOnly = false;
+					showModeNote(null);
+					$("waitingTitle").textContent = "Asking for your camera and mic";
 					show("waiting");
 					var constraints = { video: videoConstraints(""), audio: audioConstraints("") };
 					navigator.mediaDevices
@@ -1104,25 +1417,81 @@
 							}
 							throw err;
 						})
+						.then(gotStream)
+						.catch(function (err) {
+							log("camera+mic getUserMedia failed: " + (err && err.name) + " " + (err && err.message ? err.message : "") + " - trying microphone only");
+							return navigator.mediaDevices
+								.getUserMedia({ audio: audioConstraints("") })
+								.then(function (s) {
+									micOnly = true;
+									return gotStream(s).then(function () {
+										showModeNote(cameraFallbackNote(err));
+										log("continuing with microphone only (" + (err && err.name) + ")");
+									});
+								})
+								.catch(function (audioErr) {
+									// The mic is the one thing we cannot do without.
+									describeError(audioErr, true);
+									show("blocked");
+								});
+						});
+				}
+
+				// Explicit "Join with microphone only": never asks for the camera.
+				function startMicOnly() {
+					if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+						unsupportedBrowser();
+						return;
+					}
+					micOnly = true;
+					showModeNote(null);
+					$("waitingTitle").textContent = "Asking for your microphone";
+					show("waiting");
+					navigator.mediaDevices
+						.getUserMedia({ audio: audioConstraints("") })
 						.then(function (s) {
-							stopTracks(stream);
-							stream = s;
-							attachPreview();
-							show("check");
-							updateResolutionChip();
-							startMeter();
-							ensureAudioContext();
-							return refreshDeviceLists();
-						})
-						.then(function () {
-							updateJoinState();
-							setTimeout(function () {
-								$("nameInput").focus();
-							}, 50);
+							return gotStream(s).then(function () {
+								showModeNote({ title: "You're joining with microphone only.", text: "Want video after all? Press \"Use my camera instead\"." });
+							});
 						})
 						.catch(function (err) {
-							describeError(err);
+							describeError(err, true);
 							show("blocked");
+						});
+				}
+
+				// "Use my camera instead" from the audio-only state: add a video track to the live stream.
+				function enableCamera() {
+					if (!stream) {
+						return;
+					}
+					$("useCameraBtn").disabled = true;
+					$("useCameraBtn").textContent = "Asking for your camera…";
+					navigator.mediaDevices
+						.getUserMedia({ video: videoConstraints("") })
+						.catch(function (err) {
+							if (err && err.name === "OverconstrainedError") {
+								return navigator.mediaDevices.getUserMedia({ video: true });
+							}
+							throw err;
+						})
+						.then(function (s) {
+							var tracks = s.getVideoTracks();
+							for (var j = 0; j < tracks.length; j++) {
+								stream.addTrack(tracks[j]);
+							}
+							micOnly = false;
+							attachPreview();
+							applyMode();
+							showModeNote(null);
+							return refreshDeviceLists();
+						})
+						.catch(function (err) {
+							log("camera still unavailable: " + (err && err.name));
+							$("useCameraBtn").disabled = false;
+							$("useCameraBtn").textContent = "Try the camera again";
+							var note = cameraFallbackNote(err);
+							showModeNote({ title: "The camera still isn't available. No problem, we'll continue with audio only.", text: note.text });
 						});
 				}
 
@@ -1247,17 +1616,27 @@
 					}
 					$("meterFill").style.width = meterSmoothed.toFixed(1) + "%";
 					$("meterPeak").style.left = "calc(" + meterPeakHold.toFixed(1) + "% - 1px)";
+					if (micOnly) {
+						// Audio-only stage: the rings breathe with the level.
+						$("audioRing").style.transform = "scale(" + (1 + (meterSmoothed / 100) * 0.3).toFixed(3) + ")";
+						$("audioRingOuter").style.transform = "scale(" + (1 + (meterPeakHold / 100) * 0.6).toFixed(3) + ")";
+					}
 					$("meterDb").textContent = db > -60 ? Math.round(db) + " dB" : "";
 					if (pct > 12) {
 						meterHeardAt = now;
 					}
 					var status = $("meterStatus");
+					var stageSub = $("audioStageSub");
 					if (now - meterHeardAt < 1500) {
 						status.textContent = "We can hear you";
 						status.className = "ok";
+						stageSub.textContent = "We can hear you loud and clear";
+						stageSub.className = "audio-stage__sub ok";
 					} else {
 						status.textContent = "Say something…";
 						status.className = "";
+						stageSub.textContent = "Say something to see your level";
+						stageSub.className = "audio-stage__sub";
 					}
 				}
 
@@ -1333,7 +1712,7 @@
 				}
 
 				function updateJoinState() {
-					var ready = !!stream && guestName().length > 0 && !!guestId && !!roomName;
+					var ready = !!stream && stream.getAudioTracks().length > 0 && guestName().length > 0 && !!guestId && !!roomName;
 					$("joinBtn").disabled = !ready;
 				}
 
@@ -1348,9 +1727,14 @@
 					parts.push("webcam");
 					parts.push("hiddenrecord");
 					parts.push("autostart");
-					var camValue = deviceParamValue(cam);
-					if (camValue) {
-						parts.push("videodevice=" + encodeURIComponent(camValue));
+					if (micOnly) {
+						// No camera: the studio publishes audio only (main.js maps videodevice=0 to session.videoDevice = 0).
+						parts.push("videodevice=0");
+					} else {
+						var camValue = deviceParamValue(cam);
+						if (camValue) {
+							parts.push("videodevice=" + encodeURIComponent(camValue));
+						}
 					}
 					var micValue = deviceParamValue(mic);
 					if (micValue) {
@@ -1369,6 +1753,10 @@
 					parts.push("quality=0");
 					parts.push("darkmode");
 					parts.push("hidesolo");
+					// Waiting room: guests connect held (&hold) until Matt activates them. &nohold on the invite link skips it.
+					if (!params.has("nohold")) {
+						parts.push("hold");
+					}
 					// Anything else on the invite link (e.g. &password=, &bitrate=) passes through untouched.
 					params.forEach(function (value, key) {
 						if (PASSTHROUGH_EXCLUDE.indexOf(key) !== -1) {
@@ -1388,7 +1776,7 @@
 						return;
 					}
 					var url = window.fpmBuildJoinURL();
-					log("joining studio: " + url);
+					log("joining studio (" + (micOnly ? "microphone only" : "camera + mic") + "): " + url);
 					try {
 						localStorage.setItem("fpmGuestName", guestName());
 					} catch (e) {}
@@ -1407,7 +1795,15 @@
 				// --- Wiring ------------------------------------------------------------------
 
 				$("continueBtn").addEventListener("click", startPreview);
-				$("retryBtn").addEventListener("click", startPreview);
+				$("micOnlyBtn").addEventListener("click", startMicOnly);
+				$("useCameraBtn").addEventListener("click", enableCamera);
+				$("retryBtn").addEventListener("click", function () {
+					if (micOnly) {
+						startMicOnly();
+					} else {
+						startPreview();
+					}
+				});
 				$("reloadBtn").addEventListener("click", function () {
 					location.reload();
 				});
