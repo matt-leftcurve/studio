@@ -49650,6 +49650,18 @@ async function requestGoogleDriveRecord(ele, state = null, bitrate = null, event
 
 		log("PROMISE DONE");
 		var uploadLink = await session.gdrive.startResumableUpload(filename);
+		if (!uploadLink) {
+			// Without a session URI the guest would record to disk only (timer runs, nothing reaches Drive).
+			errorlog("Google Drive upload session was not created; recording request not sent to " + UUID);
+			if (!session.cleanOutput) {
+				warnUser("⚠️ Google Drive recording was not started: the upload session could not be created. Check the browser console for the Drive error.", 10000);
+			}
+			ele.classList.remove("armed");
+			ele.classList.remove("pressed");
+			ele.ariaPressed = "false";
+			updateGoogleDriveAllGuestsButtonState();
+			return;
+		}
 
 		var msg = {};
 		msg.requestVideoRecord = true;
@@ -49734,6 +49746,16 @@ async function multiGdriveRecord() {
 
 		// Get upload link for each recording
 		const uploadLink = await session.gdrive.startResumableUpload(filename);
+		if (!uploadLink) {
+			// Same guard as the single-guest path: never send a Drive-less record command.
+			errorlog("Google Drive upload session was not created; recording request not sent to " + UUID);
+			if (!session.cleanOutput) {
+				warnUser("⚠️ Google Drive recording was not started for a guest: the upload session could not be created. Check the browser console for the Drive error.", 10000);
+			}
+			button.classList.remove("armed");
+			button.ariaPressed = "false";
+			continue;
+		}
 
 		// Create message with shared settings
 		const msg = {
@@ -59035,12 +59057,24 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 				body: metadata
 			});
 			if (!response.ok) {
+				// Include Google's reason (e.g. Drive API disabled for the project, insufficient scope).
+				var failDetail = response.status + " " + response.statusText;
+				try {
+					var errBody = await response.json();
+					if (errBody && errBody.error && errBody.error.message) {
+						failDetail += ": " + errBody.error.message;
+					}
+				} catch (e) { }
 				if (!session.cleanOutput) {
-					warnUser("⚠️ Error: Failed to configure the Google Drive upload.");
+					warnUser("⚠️ Error: Failed to configure the Google Drive upload. " + failDetail, 10000);
 				}
-				throw new Error("Start resumable upload failed: " + response.statusText);
+				throw new Error("Start resumable upload failed: " + failDetail);
 			}
-			return response.headers.get("Location"); // This is the session URI for the resumable upload
+			var sessionUriHeader = response.headers.get("Location"); // This is the session URI for the resumable upload
+			if (!sessionUriHeader) {
+				errorlog("Google Drive did not return a resumable session URI (Location header missing or not exposed to this origin)");
+			}
+			return sessionUriHeader;
 		} catch (err) {
 			errorlog(err);
 			if (options.interactive === false) {
