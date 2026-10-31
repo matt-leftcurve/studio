@@ -1,0 +1,213 @@
+/* FULLPORTMATT waiting room (&hold). Shown by fpm-hold.js while the guest is held;
+   replaces the stock "please wait until the director brings you in" modal. */
+
+body.fpm-holding #alertModal[data-modalid="123"],
+body.fpm-holding #alertModal[data-modalid="123"] + #modalBackdrop {
+	display: none !important;
+}
+
+#fpmHold {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 900; /* above the room and the stock modal (~33), below the control bar (995) */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 32px 24px 120px;
+	text-align: center;
+	color: #f3ead8;
+	background: #0a161e;
+	background-image: radial-gradient(1200px 600px at 50% -10%, rgba(127, 212, 193, 0.09), transparent 60%), radial-gradient(900px 500px at 100% 100%, rgba(201, 161, 95, 0.08), transparent 55%);
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	opacity: 0;
+	transition: opacity 0.5s ease;
+}
+
+#fpmHold.fpm-hold--on {
+	opacity: 1;
+}
+
+#fpmHold.fpm-hold--leaving {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.fpm-hold__wordmark {
+	position: absolute;
+	top: 22px;
+	left: 28px;
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+
+.fpm-hold__name {
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-weight: 700;
+	font-size: 18px;
+	letter-spacing: 0.22em;
+	color: rgba(201, 161, 95, 1);
+}
+
+.fpm-hold__sub {
+	font-size: 11px;
+	letter-spacing: 0.32em;
+	text-transform: uppercase;
+	color: #7fd4c1;
+}
+
+.fpm-hold__orb {
+	position: relative;
+	width: 150px;
+	height: 150px;
+	margin-bottom: 34px;
+}
+
+.fpm-hold__ring {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	border-radius: 50%;
+	border: 1px solid rgba(201, 161, 95, 0.5);
+	animation: fpmHoldPulse 3.2s ease-out infinite;
+}
+
+.fpm-hold__ring:nth-child(2) {
+	animation-delay: 1.05s;
+}
+
+.fpm-hold__ring:nth-child(3) {
+	animation-delay: 2.1s;
+}
+
+.fpm-hold__disc {
+	position: absolute;
+	top: 42px;
+	left: 42px;
+	right: 42px;
+	bottom: 42px;
+	border-radius: 50%;
+	background: linear-gradient(180deg, rgba(221, 184, 120, 1), rgba(201, 161, 95, 1));
+	box-shadow: 0 14px 40px rgba(201, 161, 95, 0.3);
+	animation: fpmHoldBreathe 3.2s ease-in-out infinite;
+}
+
+@keyframes fpmHoldPulse {
+	0% {
+		transform: scale(0.45);
+		opacity: 0.9;
+	}
+	100% {
+		transform: scale(1.15);
+		opacity: 0;
+	}
+}
+
+@keyframes fpmHoldBreathe {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.06);
+	}
+}
+
+.fpm-hold__eyebrow {
+	display: inline-block;
+	font-size: 12px;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	color: #7fd4c1;
+	margin-bottom: 18px;
+}
+
+.fpm-hold__eyebrow::before,
+.fpm-hold__eyebrow::after {
+	content: "";
+	display: inline-block;
+	width: 28px;
+	height: 1px;
+	background: rgba(201, 161, 95, 0.5);
+	vertical-align: middle;
+	margin: 0 12px;
+}
+
+.fpm-hold__title {
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-weight: 600;
+	font-size: clamp(32px, 5vw, 50px);
+	line-height: 1.08;
+	margin: 0 0 16px;
+}
+
+.fpm-hold__title em {
+	font-style: italic;
+	color: rgba(201, 161, 95, 1);
+}
+
+.fpm-hold__lede {
+	font-size: 18px;
+	color: #a9b3b8;
+	margin: 0 0 26px;
+	max-width: 480px;
+}
+
+.fpm-hold__fine {
+	font-size: 13px;
+	color: #6f7d85;
+	max-width: 440px;
+	margin: 0;
+}
+
+.fpm-hold__fine strong {
+	color: #a9b3b8;
+	font-weight: 600;
+}
+
+@media (max-width: 640px) {
+	#fpmHold {
+		padding: 72px 20px 110px;
+	}
+
+	.fpm-hold__wordmark {
+		left: 18px;
+		top: 16px;
+	}
+
+	.fpm-hold__orb {
+		width: 110px;
+		height: 110px;
+		margin-bottom: 26px;
+	}
+
+	.fpm-hold__disc {
+		top: 31px;
+		left: 31px;
+		right: 31px;
+		bottom: 31px;
+	}
+
+	.fpm-hold__lede {
+		font-size: 16px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fpm-hold__ring,
+	.fpm-hold__disc {
+		animation: none;
+	}
+
+	.fpm-hold__ring {
+		transform: scale(0.8);
+		opacity: 0.6;
+	}
+}
