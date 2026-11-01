@@ -11,6 +11,16 @@ body.fpm-guest #subControlButtons {
 	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
 	backdrop-filter: blur(10px) saturate(120%);
 	-webkit-backdrop-filter: blur(10px) saturate(120%);
+	flex-wrap: nowrap; /* always one row */
+	max-width: calc(100vw - 12px);
+}
+
+/* Exactly five guest buttons: AUDIO · VIDEO · SHARE SCREEN · SETTINGS · LEAVE.
+   Everything else the stock bar can show (chat, speaker, website, flip, files, raise hand,
+   fullscreen, record, queue, director-only controls) stays hidden for guests. The stock code
+   still toggles `hidden` on the five, so their own visibility rules keep working. */
+body.fpm-guest #subControlButtons > :not(#mutebutton):not(#mutevideobutton):not(#screensharebutton):not(#screenshare2button):not(#screenshare3button):not(#settingsbutton):not(#hangupbutton) {
+	display: none !important;
 }
 
 body.fpm-guest #subControlButtons > div.float,
@@ -118,6 +128,21 @@ body.fpm-guest #subControlButtons > div.float.red::after {
 	color: #ffd9d4;
 }
 
+/* sharing a screen: the stock code adds `green` to the share button while the :s stream is live */
+body.fpm-guest #subControlButtons > div.float.green {
+	background-color: rgba(127, 212, 193, 0.2) !important;
+	border-color: rgba(127, 212, 193, 0.7);
+}
+
+body.fpm-guest #subControlButtons > div.float.green:hover {
+	background-color: rgba(127, 212, 193, 0.3) !important;
+}
+
+body.fpm-guest #subControlButtons > div.float.green .toggleSize,
+body.fpm-guest #subControlButtons > div.float.green::after {
+	color: #7fd4c1;
+}
+
 /* Leave is always tinted red */
 body.fpm-guest #hangupbutton,
 body.fpm-guest #hangupbutton2 {
@@ -139,18 +164,6 @@ body.fpm-guest #hangupbutton .toggleSize {
 	color: #fff;
 }
 
-/* notification badges keep working on the relative buttons */
-body.fpm-guest #chatNotification,
-body.fpm-guest #transferNotification,
-body.fpm-guest #queueNotification {
-	z-index: 2;
-}
-
-/* speaker volume panel pops out of the button; keep it clickable and untouched */
-body.fpm-guest #speakerVolumePanel {
-	flex-direction: column;
-}
-
 @media (max-width: 640px) {
 	body.fpm-guest #subControlButtons {
 		border-radius: 14px;
@@ -168,6 +181,24 @@ body.fpm-guest #speakerVolumePanel {
 	body.fpm-guest #subControlButtons > div[data-fpm-label]::after {
 		font-size: 9px;
 		letter-spacing: 0.06em;
+	}
+}
+
+/* narrow phones: five buttons still fit one row (5 × 56 px + bar padding < 320 px) */
+@media (max-width: 400px) {
+	body.fpm-guest #subControlButtons > div.float,
+	body.fpm-guest #subControlButtons > div.float2 {
+		min-width: 52px;
+		padding: 6px 2px 5px;
+	}
+
+	body.fpm-guest #subControlButtons .toggleSize {
+		font-size: 24px;
+	}
+
+	body.fpm-guest #subControlButtons > div[data-fpm-label]::after {
+		font-size: 8px;
+		letter-spacing: 0.03em;
 	}
 }
 

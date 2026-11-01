@@ -1,7 +1,8 @@
-// FULLPORTMATT guest control bar: labels + state-aware tooltips.
-// UI-only. Reads the existing button state (the `red` class and icon swaps set by
-// toggleMute / toggleVideoMute in lib.js) and writes data-fpm-* attributes that
-// fpm-guestbar.css renders. Does not touch session state or call core functions.
+// FULLPORTMATT guest control bar: five buttons, labels + state-aware tooltips.
+// UI-only. Reads the existing button state (the `red` class set by toggleMute / toggleVideoMute,
+// the `green` class set by the screen-share code in lib.js) and writes data-fpm-* attributes that
+// fpm-guestbar.css renders. Buttons outside the five (chat, speaker, website, flip, files, ...)
+// are hidden by fpm-guestbar.css. Does not touch session state or call core functions.
 // Loads after main.js; parse-safe for the older startup target (no ?. / ??).
 (function () {
 	"use strict";
@@ -14,31 +15,25 @@
 		}
 	}
 
+	// The five guest buttons, in bar order: AUDIO · VIDEO · SHARE SCREEN · SETTINGS · LEAVE.
+	// The stock code shows one of the three screenshare buttons depending on the share type
+	// (room guests get #screenshare3button, which publishes the <id>:s stream).
 	var labels = {
 		mutebutton: "Audio",
 		mutevideobutton: "Video",
-		hangupbutton: "Leave",
-		hangupbutton2: "Leave",
-		screensharebutton: "Share",
-		screenshare2button: "Share",
-		screenshare3button: "Share",
-		chatbutton: "Chat",
-		mutespeakerbutton: "Speaker",
+		screensharebutton: "Share screen",
+		screenshare2button: "Share screen",
+		screenshare3button: "Share screen",
 		settingsbutton: "Settings",
-		sharefilebutton: "Files",
-		websitesharebutton: "Website",
-		raisehandbutton: "Raise hand",
-		fullscreenPage: "Fullscreen",
-		PictureInPicturePage: "Pop out",
-		flipcamerabutton: "Flip",
-		recordLocalbutton: "Record",
-		queuebutton: "Queue",
-		blackoutmode: "Black out",
-		unmuteSelf: "Monitor"
+		hangupbutton: "Leave"
 	};
 
 	function isOn(el) {
 		return el.classList.contains("red");
+	}
+
+	function isSharing(el) {
+		return el.classList.contains("green");
 	}
 
 	// Tooltip text follows the current state: "Mute mic" while live, "Unmute mic" while muted.
@@ -48,23 +43,14 @@
 				return isOn(el) ? "Unmute mic" : "Mute mic";
 			case "mutevideobutton":
 				return isOn(el) ? "Turn on camera" : "Turn off camera";
-			case "mutespeakerbutton":
-				return isOn(el) ? "Unmute speaker" : "Mute speaker";
 			case "hangupbutton":
-			case "hangupbutton2":
 				return "Leave the studio";
 			case "screensharebutton":
 			case "screenshare2button":
 			case "screenshare3button":
-				return "Share your screen";
-			case "chatbutton":
-				return "Open chat";
+				return isSharing(el) ? "Stop sharing" : "Share your screen";
 			case "settingsbutton":
 				return "Camera and mic settings";
-			case "raisehandbutton":
-				return el.getAttribute("data-raised") === "1" ? "Lower hand" : "Raise hand";
-			case "fullscreenPage":
-				return "Full screen";
 			default:
 				// fall back to the stock title text, minus any keyboard shortcut hint
 				var t = el.getAttribute("title") || el.dataset.fpmOrigTitle || "";
@@ -129,7 +115,7 @@
 		});
 		observer.observe(bar, {
 			attributes: true,
-			attributeFilter: ["class", "title", "aria-label", "data-raised"],
+			attributeFilter: ["class", "title", "aria-label"],
 			childList: true,
 			subtree: true
 		});
