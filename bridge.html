@@ -342,7 +342,7 @@
 					})
 					.filter(Boolean);
 				var OBS_URL = params.get("obs") || "ws://127.0.0.1:4455";
-				var OBS_PASS = params.has("pass") ? params.get("pass") : "bender-mini-4k";
+				var OBS_PASS = params.get("pass") || ""; // REQUIRED for a password-protected OBS: pass &pass=... (never hardcode in this public file)
 				var SCENE_SHARE = params.get("sharescene") || "Guest - Share";
 				var SCENE_SBS = params.get("sbsscene") || "Guest - SBS";
 				var DEBOUNCE_MS = parseInt(params.get("debounce") || "2000", 10) || 2000;
