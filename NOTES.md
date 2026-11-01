@@ -958,3 +958,109 @@ Two implementation gotchas worth knowing: `requestAnimationFrame` never fires
 in a background tab, so the overlays use short timers for their fade-in; and
 `#hangupContainer` always exists inside the hidden `#hangupTemplate`, so
 "hung up" means that element outside the template.
+
+---
+
+# I. Join-flow polish (2026-10-31, from Matt's phone testing)
+
+Branch: `deploy`. Files: `join.html`, `fpm-guestbar.css`, `fpm-guestbar.js`,
+`fpm-veil.css` + `fpm-veil.js` (new), two include lines in `index.html`.
+`lib.js`, `main.js`, `webrtc.js` and `main.css` are **not** modified.
+
+## 1. Camera on/off toggle on the device check (`join.html`)
+
+A round button in the bottom-right corner of the preview (`#camToggle`,
+camera / camera-with-slash icon). OFF stops and removes the video tracks (the
+camera light goes out), sets the same `micOnly` state the "Join with
+microphone only" option uses, and so shows the same branded audio-only stage,
+mic meter rings, "Off · joining with microphone only" row and `audio` chip;
+the join URL gets `&videodevice=0`. ON re-adds a video track: the camera that
+was on before (`lastCameraId`), else any front camera, else `video: true`.
+Both the toggle and the field-level link ("Turn my camera on") call the same
+`enableCamera()`; a blocked camera lands in the same calm note as before.
+
+## 2. Front camera only on phones
+
+`isMobile` = phone/tablet UA (iPadOS counted via `Macintosh` + touch points).
+On mobile the camera dropdown is filtered to user-facing devices:
+`InputDeviceInfo.getCapabilities().facingMode` when the browser exposes it,
+else the label (`front|user|facetime|selfie`; `back|rear|environment` is
+rear), else the live track's `getSettings().facingMode`. If nothing identifies
+as front the full list is kept. Desktops keep the full list. The first request
+asks for `facingMode: "user"` with `ideal` 1920×1080 (never `exact`).
+
+## 3. Cropped front-cam preview
+
+Root cause: a fixed 16:9 box with `object-fit: cover`, so a 1080×1920 portrait
+feed was cropped to its middle 30 %. Now `object-fit: contain` on a near-black
+background (letterbox). Desktop keeps the 16:9 box; on phones the box follows
+the feed via `--stage-ratio` (clamped between 16:9 and 4:5, `max-height: 62vh`)
+so the device panel stays reachable. The chip always shows the true captured
+size in a separate mono span (`1080×1920 · 30 fps`); on phones the "this is
+how you'll be recorded" phrase is dropped so the chip stays one line.
+
+## 4. Guest control bar: exactly five buttons
+
+`fpm-guestbar.css` hides every child of `#subControlButtons` except
+`#mutebutton`, `#mutevideobutton`, the screenshare button(s), `#settingsbutton`
+and `#hangupbutton` (`display: none !important`); the stock code still toggles
+`hidden` on those five. Order is the stock DOM order: AUDIO · VIDEO · SHARE
+SCREEN · SETTINGS · LEAVE. `flex-wrap: nowrap` keeps one row; at ≤ 400 px the
+buttons shrink so five fit in 320 px.
+
+Share screen: `&webcam` sets `session.screensharebutton = false`
+(`main.js:1994`), so `join.html` now appends `&ssb` (the stock URL option,
+`main.js:6234`) on desktops — not on phones, where the app disables screen
+share (`main.js:4910`) and there is no `getDisplayMedia`. In a room the stock
+code shows `#screenshare3button` → `screenshareTypeDecider(3)` →
+`createSecondStream()`, which publishes `<id>:s` (what `bridge.html` watches).
+The share code toggles the `green` class and the title on that button
+(`lib.js:76077`, `76246`); the bar reads it for the tooltip ("Share your
+screen" / "Stop sharing") and a teal active state. Live mic stays the
+non-red state; muted keeps the dimmed red.
+
+## 5. "Entering the studio…" veil (`fpm-veil.js` / `fpm-veil.css`)
+
+Guest contexts only (same exclusion list as the bar) and only when the URL has
+`webcam` + `autostart` (the join.html handoff; the plain landing page and
+manual publish pages never see it). Appended to `<body>` as soon as the script
+runs, i.e. before the app un-hides the body, so the stock "Waiting for Camera
+to Load" / "No Audio" card is never painted. Lifts (0.5 s fade, node removed)
+when `#controlButtons` loses `hidden` (set by `publishWebcam` once the room is
+joined), when any stock `#alertModal` / `#promptModal` / `#modalBackdrop`
+appears (password prompt, permission error, the hold notice), when the body
+was replaced by `hangup()`, or after 10 s — then it logs
+`[fpm-veil] not in the room after 10 s; showing the stock screen (head3=…
+gowebcam="…" controlButtons=…)` so the real state is visible and debuggable.
+z-index 890: above the arming screen, below the `&hold` overlay (900) so the
+hold screen fades in as the veil fades out, below the control bar (995).
+
+Item 6 (iOS "No Audio" label on the arming screen) was left alone per Matt:
+the veil makes that screen invisible and audio is fine once in the room.
+
+## Test results (2026-10-31, headless Google Chrome 138, fake media)
+
+Static server on a free port in the checkout; CDP harness kept outside the
+repo (`/tmp/fpm-polish-test/`). Random rooms on the stock signaling.
+
+| check | result |
+| --- | --- |
+| toggle visible, `aria-pressed` false, "Turn camera off", preview `object-fit: contain`, chip `1080p` + `1920×1080 · 20 fps`, desktop stage 16:9 | pass |
+| toggle OFF → `stage--audio`, slash icon, audio placeholder, camera select → off row, chip `audio`, note "Camera off…", URL `&videodevice=0`, meter still animates | pass |
+| toggle ON → camera back, chip `1080p`, note cleared, URL has camera id; "Turn my camera on" link does the same; Join with camera off navigates with `videodevice=0` | pass |
+| phone emulation (390×844, iPhone UA, mocked Front/Back/Ultra Wide/Telephoto + 1080×1920 canvas feed) | first gUM `facingMode:"user"` + ideal sizes; dropdown = `["Front Camera"]`; chip `1080×1920 · 30 fps`; `--stage-ratio: 125%`, stage 452 px (≤ 62vh), contain; no horizontal overflow; off → 16:9 placeholder, on → portrait again | pass |
+| Android UA, camera label without facing info | list kept (`["USB Camera 1"]`) | pass |
+| desktop join URL | `…&quality=0&darkmode&hidesolo&ssb&hold`; phone URL has no `&ssb` | pass |
+| room (`&webcam&autostart&ssb`) | veil present during arming (fixed, branded copy, `body.fpm-veiling`), lifted "in room" when the bar appeared, node removed | pass |
+| bar | visible children exactly `mutebutton, mutevideobutton, screenshare3button, settingsbutton, hangupbutton`; chat/speaker/website/flip/files `display: none`; Leave red; `nowrap`; at 360 px all five on one row (bar 323 px wide) | pass |
+| share | click `#screenshare3button` (headless `--auto-select-desktop-capture-source`) → `session.screenShareState === true`, button `green`, tooltip "Stop sharing", teal border; click again → reverted | pass |
+| `?director=`, `?scene&cleanoutput`, plain `/` | no veil, no guest bar | pass |
+| veil timeout (gUM never resolves) | lifted after 10.8 s with the warning line, stock "Waiting for Camera to Load" visible | pass |
+| veil + stock dialog | `warnUser()` lifts it immediately | pass |
+| CI | `ci-validateTranslations.js`, `ci-checkTranslationKeys.js`, `node --check` on the new/changed scripts, no `?.`/`??` | pass |
+
+Not tested: a real Chrome 80 runtime (new code uses `var`, plain functions,
+CSS custom properties, `Element.closest`, `MutationObserver`; no `?.`/`??`,
+`aspect-ratio` or `inset`), a real iPhone/Android (the portrait and facing
+logic was exercised with mocked devices), and `InputDeviceInfo.getCapabilities`
+on Safari (the label fallback covers it).
