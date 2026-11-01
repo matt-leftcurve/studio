@@ -1,0 +1,162 @@
+/* FULLPORTMATT "Entering the studio…" veil. Shown by fpm-veil.js from page load until the guest
+   is in the room (or a stock dialog / the 10 s timeout lifts it). Same palette as join.html and
+   the &hold waiting room so the handoff reads as one screen. */
+
+#fpmVeil {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 890; /* above the stock arming screen, below the &hold overlay (900) and the control bar (995) */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 32px 24px 96px;
+	text-align: center;
+	color: #f3ead8;
+	background: #0a161e;
+	background-image: radial-gradient(1200px 600px at 50% -10%, rgba(127, 212, 193, 0.09), transparent 60%), radial-gradient(900px 500px at 100% 100%, rgba(201, 161, 95, 0.08), transparent 55%);
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	opacity: 1;
+	transition: opacity 0.5s ease;
+}
+
+#fpmVeil.fpm-veil--leaving {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.fpm-veil__wordmark {
+	position: absolute;
+	top: 22px;
+	left: 28px;
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+
+.fpm-veil__name {
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-weight: 700;
+	font-size: 18px;
+	letter-spacing: 0.22em;
+	color: rgba(201, 161, 95, 1);
+}
+
+.fpm-veil__sub {
+	font-size: 11px;
+	letter-spacing: 0.32em;
+	text-transform: uppercase;
+	color: #7fd4c1;
+}
+
+.fpm-veil__orb {
+	position: relative;
+	width: 112px;
+	height: 112px;
+	margin-bottom: 30px;
+}
+
+.fpm-veil__ring {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	border-radius: 50%;
+	border: 1px solid rgba(201, 161, 95, 0.5);
+	animation: fpmVeilPulse 2.4s ease-out infinite;
+}
+
+.fpm-veil__ring + .fpm-veil__ring {
+	animation-delay: 1.2s;
+}
+
+.fpm-veil__disc {
+	position: absolute;
+	top: 22px;
+	left: 22px;
+	right: 22px;
+	bottom: 22px;
+	border-radius: 50%;
+	background: linear-gradient(180deg, rgba(221, 184, 120, 1), rgba(201, 161, 95, 1));
+	box-shadow: 0 14px 34px rgba(201, 161, 95, 0.28);
+	animation: fpmVeilBreathe 2.4s ease-in-out infinite;
+}
+
+.fpm-veil__eyebrow {
+	display: inline-block;
+	font-size: 12px;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	color: #7fd4c1;
+	margin-bottom: 14px;
+}
+
+.fpm-veil__title {
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+	font-weight: 600;
+	font-size: clamp(30px, 5vw, 46px);
+	line-height: 1.1;
+	letter-spacing: -0.01em;
+	margin: 0 0 14px;
+}
+
+.fpm-veil__title em {
+	font-style: italic;
+	color: rgba(201, 161, 95, 1);
+}
+
+.fpm-veil__lede {
+	margin: 0;
+	font-size: 16px;
+	color: #a9b3b8;
+}
+
+@keyframes fpmVeilPulse {
+	0% {
+		transform: scale(0.85);
+		opacity: 0.9;
+	}
+	100% {
+		transform: scale(1.45);
+		opacity: 0;
+	}
+}
+
+@keyframes fpmVeilBreathe {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.06);
+	}
+}
+
+@media (max-width: 640px) {
+	.fpm-veil__wordmark {
+		top: 16px;
+		left: 18px;
+	}
+
+	.fpm-veil__orb {
+		width: 92px;
+		height: 92px;
+		margin-bottom: 22px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fpm-veil__ring,
+	.fpm-veil__disc {
+		animation: none;
+	}
+
+	#fpmVeil {
+		transition: none;
+	}
+}
