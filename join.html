@@ -292,13 +292,15 @@
 				box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
 			}
 
-			/* 16:9 ratio box (padding fallback keeps Chrome 80 happy; no aspect-ratio). */
+			/* Ratio box (padding fallback keeps Chrome 80 happy; no aspect-ratio). Desktop stays 16:9;
+			   on phones the script sets --stage-ratio from the feed so a portrait camera gets a taller box. */
 			.stage::before {
 				content: "";
 				display: block;
-				padding-top: 56.25%;
+				padding-top: var(--stage-ratio, 56.25%);
 			}
 
+			/* Letterbox instead of crop: the preview must show exactly what the camera captures. */
 			.stage video {
 				position: absolute;
 				top: 0;
@@ -307,9 +309,82 @@
 				bottom: 0;
 				width: 100%;
 				height: 100%;
-				object-fit: cover;
+				object-fit: contain;
 				transform: scaleX(-1);
-				background: #000;
+				background: #05090c;
+			}
+
+			/* Camera on/off toggle in the stage corner; shares the audio-only state with the mic-only option. */
+			.stage__cam {
+				position: absolute;
+				right: 18px;
+				bottom: 18px;
+				z-index: 2;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 48px;
+				height: 48px;
+				padding: 0;
+				border-radius: 50%;
+				border: 1px solid var(--line-strong);
+				background: rgba(10, 22, 30, 0.78);
+				color: var(--cream);
+				cursor: pointer;
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+				transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+				-webkit-tap-highlight-color: transparent;
+			}
+
+			.stage__cam:hover {
+				background: var(--gold-soft);
+			}
+
+			.stage__cam:active {
+				transform: translateY(1px);
+			}
+
+			.stage__cam:focus-visible {
+				outline: 2px solid var(--teal);
+				outline-offset: 2px;
+			}
+
+			.stage__cam:disabled {
+				opacity: 0.6;
+				cursor: wait;
+			}
+
+			.stage__cam svg {
+				width: 22px;
+				height: 22px;
+				fill: none;
+				stroke: currentColor;
+				stroke-width: 1.8;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+
+			.stage__cam .stage__cam-off {
+				display: none;
+			}
+
+			.stage--audio .stage__cam {
+				background: #7d1d1d;
+				border-color: rgba(255, 140, 140, 0.55);
+			}
+
+			.stage--audio .stage__cam:hover {
+				background: #962424;
+			}
+
+			.stage--audio .stage__cam .stage__cam-on {
+				display: none;
+			}
+
+			.stage--audio .stage__cam .stage__cam-off {
+				display: block;
 			}
 
 			/* Audio-only state: the video is replaced by a branded placeholder + live level ring. */
@@ -466,7 +541,7 @@
 				-webkit-backdrop-filter: blur(8px);
 				font-size: 13px;
 				color: var(--muted);
-				max-width: calc(100% - 36px);
+				max-width: calc(100% - 96px);
 			}
 
 			.chip__res {
@@ -482,6 +557,18 @@
 
 			.chip__res[data-state="pending"] {
 				background: var(--teal);
+			}
+
+			.chip__dims {
+				font-family: var(--mono);
+				font-size: 12px;
+				letter-spacing: 0.04em;
+				color: var(--cream);
+				white-space: nowrap;
+			}
+
+			.chip__dims:empty {
+				display: none;
 			}
 
 			.stage__hint {
@@ -861,10 +948,27 @@
 					padding: 20px 18px 18px;
 				}
 
+				.stage {
+					max-height: 62vh; /* a portrait feed may not push the device panel off screen */
+				}
+
 				.chip {
 					left: 12px;
 					bottom: 12px;
 					font-size: 12px;
+					gap: 8px;
+					padding: 6px 12px 6px 8px;
+				}
+
+				.chip[data-dims="1"] .chip__hint {
+					display: none;
+				}
+
+				.stage__cam {
+					right: 12px;
+					bottom: 12px;
+					width: 44px;
+					height: 44px;
 				}
 
 				.stage__hint {
@@ -988,9 +1092,14 @@
 						<span class="stage__corner stage__corner--bl"></span>
 						<span class="stage__corner stage__corner--br"></span>
 						<span class="stage__hint">Mirrored preview</span>
-						<div class="chip">
+						<button id="camToggle" class="stage__cam" type="button" aria-pressed="false" aria-label="Turn camera off" title="Turn camera off">
+							<svg class="stage__cam-on" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"></rect><path d="M16 10.5l5-2.5v8l-5-2.5"></path></svg>
+							<svg class="stage__cam-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7h4a2 2 0 0 1 2 2v1.5l5-2.5v8l-2.5-1.25"></path><path d="M16 15v.5a1.5 1.5 0 0 1-1.5 1.5H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1"></path><path d="M3 3l18 18"></path></svg>
+						</button>
+						<div id="chip" class="chip">
 							<span id="resChip" class="chip__res" data-state="pending">…</span>
-							<span id="resText">this is how you'll be recorded</span>
+							<span id="resText" class="chip__hint">this is how you'll be recorded</span>
+							<span id="resDims" class="chip__dims"></span>
 						</div>
 					</div>
 
@@ -1016,7 +1125,7 @@
 							<select id="cameraSelect" class="control"></select>
 							<div id="camOff" class="cam-off hidden">
 								<span>Off &middot; joining with microphone only</span>
-								<button id="useCameraBtn" class="linkbtn" type="button">Use my camera instead</button>
+								<button id="useCameraBtn" class="linkbtn" type="button">Turn my camera on</button>
 							</div>
 						</div>
 
@@ -1076,7 +1185,13 @@
 				roomName = roomName.trim().replace(/[\W]+/g, "_");
 
 				// Invite-link params this page consumes or sets itself; all others pass through to the studio URL.
-				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo", "hold", "nohold", "seat", "g"];
+				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo", "hold", "nohold", "seat", "g", "ssb", "screensharebutton"];
+
+				// Phones and tablets: front camera only, portrait-aware preview box. Desktops keep the full camera list.
+				var ua = navigator.userAgent || "";
+				var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+				// Screen sharing needs getDisplayMedia and the studio disables it on phones, so only desktops get the Share button.
+				var canShareScreen = !isMobile && !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
 
 				// --- State -----------------------------------------------------------------
 				var stream = null; // live MediaStream shown in the preview
@@ -1087,7 +1202,8 @@
 				var meterPeakHold = 0;
 				var meterPeakAt = 0;
 				var headphones = false; // false = "No" (processing on), true = "Yes"
-				var micOnly = false; // true = joining with microphone only (no camera track, &videodevice=0)
+				var micOnly = false; // true = camera off / joining with microphone only (no camera track, &videodevice=0)
+				var lastCameraId = ""; // camera to bring back when the toggle is switched on again
 				var sinkSupported = typeof HTMLMediaElement !== "undefined" && typeof HTMLMediaElement.prototype.setSinkId === "function";
 				var toneAudio = null;
 				var toneTimer = 0;
@@ -1144,6 +1260,58 @@
 					return { deviceId: opt.value, label: opt.dataset.label || opt.textContent };
 				}
 
+				// "front" / "user" facing, from the device capabilities when the browser exposes them, else the label.
+				// Returns true (front), false (not front) or null (unknown).
+				function cameraFacing(device) {
+					var caps = null;
+					try {
+						if (device.getCapabilities) {
+							caps = device.getCapabilities();
+						}
+					} catch (e) {}
+					if (caps && caps.facingMode && caps.facingMode.length) {
+						return caps.facingMode.indexOf("user") !== -1;
+					}
+					var label = device.label || "";
+					if (/\b(front|user|facetime|selfie)\b/i.test(label)) {
+						return true;
+					}
+					if (/\b(back|rear|environment|world)\b/i.test(label)) {
+						return false;
+					}
+					return null;
+				}
+
+				// On phones keep only the user-facing cameras (no rear/wide/tele). The camera that is live now
+				// counts as front when its track says so. If nothing identifies as front, keep the full list.
+				function frontCameras(devices) {
+					var liveId = currentTrackDeviceId("video");
+					var liveFacing = "";
+					if (stream && stream.getVideoTracks().length && stream.getVideoTracks()[0].getSettings) {
+						liveFacing = stream.getVideoTracks()[0].getSettings().facingMode || "";
+					}
+					var front = [];
+					var others = [];
+					for (var i = 0; i < devices.length; i++) {
+						var d = devices[i];
+						if (d.kind !== "videoinput") {
+							others.push(d);
+							continue;
+						}
+						var facing = cameraFacing(d);
+						if (facing === null && liveId && d.deviceId === liveId && liveFacing) {
+							facing = liveFacing === "user";
+						}
+						if (facing === true) {
+							front.push(d);
+						}
+					}
+					if (!front.length) {
+						return devices;
+					}
+					return others.concat(front);
+				}
+
 				function fillSelect(selectEl, devices, kind, fallbackName, currentId) {
 					var previous = selectEl.value;
 					selectEl.innerHTML = "";
@@ -1192,7 +1360,8 @@
 
 				function refreshDeviceLists() {
 					return navigator.mediaDevices.enumerateDevices().then(function (devices) {
-						var cams = fillSelect($("cameraSelect"), devices, "videoinput", "Camera", currentTrackDeviceId("video"));
+						var camList = isMobile ? frontCameras(devices) : devices;
+						var cams = fillSelect($("cameraSelect"), camList, "videoinput", "Camera", currentTrackDeviceId("video") || lastCameraId);
 						var mics = fillSelect($("micSelect"), devices, "audioinput", "Microphone", currentTrackDeviceId("audio"));
 						var spk = fillSelect($("speakerSelect"), devices, "audiooutput", "Speaker", "");
 						log("devices enumerated: cameras=" + cams + " mics=" + mics + " speakers=" + spk);
@@ -1215,6 +1384,8 @@
 
 				// Same shape as the studio's quality=0 request so the chip reports what the
 				// show will actually capture.
+				// Size hints are "ideal" only: a phone may answer with native portrait (1080×1920) and the
+				// preview letterboxes it rather than cropping.
 				function videoConstraints(deviceId) {
 					var c = {
 						width: { ideal: 1920 },
@@ -1226,6 +1397,26 @@
 						c.facingMode = "user";
 					}
 					return c;
+				}
+
+				// Stage box: desktop always 16:9 (portrait feeds letterbox inside); phones follow the feed,
+				// clamped between 16:9 and 4:5 so the device panel stays reachable.
+				function updateStageRatio() {
+					var stage = document.querySelector(".stage");
+					var video = $("preview");
+					var w = video.videoWidth;
+					var h = video.videoHeight;
+					if (micOnly || !w || !h || !isMobile || window.innerWidth > 860) {
+						stage.style.removeProperty("--stage-ratio");
+						return;
+					}
+					var pct = (h / w) * 100;
+					if (pct < 56.25) {
+						pct = 56.25;
+					} else if (pct > 125) {
+						pct = 125;
+					}
+					stage.style.setProperty("--stage-ratio", pct.toFixed(2) + "%");
 				}
 
 				function audioConstraints(deviceId) {
@@ -1260,6 +1451,8 @@
 				function updateResolutionChip() {
 					var chip = $("resChip");
 					var tracks = stream ? stream.getVideoTracks() : [];
+					$("resDims").textContent = "";
+					$("chip").removeAttribute("data-dims");
 					if (!tracks.length) {
 						if (micOnly) {
 							chip.textContent = "audio";
@@ -1273,8 +1466,8 @@
 						return;
 					}
 					var s = tracks[0].getSettings ? tracks[0].getSettings() : {};
-					var w = s.width || $("preview").videoWidth;
-					var h = s.height || $("preview").videoHeight;
+					var w = $("preview").videoWidth || s.width;
+					var h = $("preview").videoHeight || s.height;
 					if (!w || !h) {
 						chip.textContent = "…";
 						chip.dataset.state = "pending";
@@ -1295,8 +1488,11 @@
 					chip.textContent = label;
 					chip.dataset.state = "live";
 					chip.title = w + "×" + h + fps;
-					$("resText").textContent = "this is how you'll be recorded (" + w + "×" + h + fps + ")";
+					$("resText").textContent = "this is how you'll be recorded";
+					$("resDims").textContent = w + "×" + h + fps; // always the true captured size
+					$("chip").setAttribute("data-dims", "1");
 					log("capture resolution " + w + "x" + h + fps);
+					updateStageRatio();
 				}
 
 				function describeError(err, audioOnly) {
@@ -1358,17 +1554,26 @@
 				// Reflect camera / mic-only mode in the preview stage, the camera field and the chip.
 				function applyMode() {
 					var stage = document.querySelector(".stage");
+					var toggle = $("camToggle");
 					if (micOnly) {
 						stage.classList.add("stage--audio");
 						$("cameraSelect").classList.add("hidden");
 						$("camOff").classList.remove("hidden");
 						$("useCameraBtn").disabled = false;
-						$("useCameraBtn").textContent = "Use my camera instead";
+						$("useCameraBtn").textContent = "Turn my camera on";
+						toggle.setAttribute("aria-pressed", "true");
+						toggle.setAttribute("aria-label", "Turn camera on");
+						toggle.title = "Turn camera on";
 					} else {
 						stage.classList.remove("stage--audio");
 						$("cameraSelect").classList.remove("hidden");
 						$("camOff").classList.add("hidden");
+						toggle.setAttribute("aria-pressed", "false");
+						toggle.setAttribute("aria-label", "Turn camera off");
+						toggle.title = "Turn camera off";
 					}
+					toggle.disabled = false;
+					updateStageRatio();
 					updateResolutionChip();
 				}
 
@@ -1376,6 +1581,9 @@
 				function gotStream(s) {
 					stopTracks(stream);
 					stream = s;
+					if (!micOnly) {
+						lastCameraId = currentTrackDeviceId("video") || lastCameraId;
+					}
 					attachPreview();
 					show("check");
 					applyMode();
@@ -1460,15 +1668,23 @@
 						});
 				}
 
-				// "Use my camera instead" from the audio-only state: add a video track to the live stream.
+				// Camera on, from the audio-only state (toggle button or "Turn my camera on"): add a video
+				// track to the live stream. Tries the camera that was on before, then any front camera.
 				function enableCamera() {
 					if (!stream) {
 						return;
 					}
 					$("useCameraBtn").disabled = true;
 					$("useCameraBtn").textContent = "Asking for your camera…";
-					navigator.mediaDevices
-						.getUserMedia({ video: videoConstraints("") })
+					$("camToggle").disabled = true;
+					var attempt = lastCameraId ? navigator.mediaDevices.getUserMedia({ video: videoConstraints(lastCameraId) }) : Promise.reject({ name: "NoPreferredCamera" });
+					attempt
+						.catch(function (err) {
+							if (err && (err.name === "OverconstrainedError" || err.name === "NotFoundError" || err.name === "NoPreferredCamera")) {
+								return navigator.mediaDevices.getUserMedia({ video: videoConstraints("") });
+							}
+							throw err;
+						})
 						.catch(function (err) {
 							if (err && err.name === "OverconstrainedError") {
 								return navigator.mediaDevices.getUserMedia({ video: true });
@@ -1481,18 +1697,48 @@
 								stream.addTrack(tracks[j]);
 							}
 							micOnly = false;
+							lastCameraId = currentTrackDeviceId("video") || lastCameraId;
 							attachPreview();
 							applyMode();
 							showModeNote(null);
+							log("camera on");
 							return refreshDeviceLists();
 						})
 						.catch(function (err) {
 							log("camera still unavailable: " + (err && err.name));
+							$("camToggle").disabled = false;
 							$("useCameraBtn").disabled = false;
 							$("useCameraBtn").textContent = "Try the camera again";
 							var note = cameraFallbackNote(err);
 							showModeNote({ title: "The camera still isn't available. No problem, we'll continue with audio only.", text: note.text });
 						});
+				}
+
+				// Camera off: release the camera (its light goes out) and join with microphone only.
+				// Same state and same &videodevice=0 path as "Join with microphone only".
+				function disableCamera() {
+					if (!stream) {
+						return;
+					}
+					lastCameraId = currentTrackDeviceId("video") || $("cameraSelect").value || lastCameraId;
+					var old = stream.getVideoTracks();
+					for (var i = 0; i < old.length; i++) {
+						stream.removeTrack(old[i]);
+						old[i].stop();
+					}
+					micOnly = true;
+					attachPreview();
+					applyMode();
+					showModeNote({ title: "Camera off. You'll join with microphone only.", text: "Turn it back on any time before you join." });
+					log("camera off");
+				}
+
+				function toggleCamera() {
+					if (micOnly) {
+						enableCamera();
+					} else {
+						disableCamera();
+					}
 				}
 
 				function switchCamera(deviceId) {
@@ -1513,6 +1759,7 @@
 							for (var j = 0; j < tracks.length; j++) {
 								stream.addTrack(tracks[j]);
 							}
+							lastCameraId = deviceId;
 							attachPreview();
 							updateResolutionChip();
 						})
@@ -1753,6 +2000,10 @@
 					parts.push("quality=0");
 					parts.push("darkmode");
 					parts.push("hidesolo");
+					// Share screen button in the guest control bar (&ssb); phones have no getDisplayMedia, so they skip it.
+					if (canShareScreen) {
+						parts.push("ssb");
+					}
 					// Waiting room: guests connect held (&hold) until Matt activates them. &nohold on the invite link skips it.
 					if (!params.has("nohold")) {
 						parts.push("hold");
@@ -1797,6 +2048,7 @@
 				$("continueBtn").addEventListener("click", startPreview);
 				$("micOnlyBtn").addEventListener("click", startMicOnly);
 				$("useCameraBtn").addEventListener("click", enableCamera);
+				$("camToggle").addEventListener("click", toggleCamera);
 				$("retryBtn").addEventListener("click", function () {
 					if (micOnly) {
 						startMicOnly();
@@ -1839,6 +2091,9 @@
 					$("hpHelp").textContent = "No headphones? We'll turn on echo cancellation and noise suppression so Matt doesn't hear himself.";
 				});
 				$("preview").addEventListener("loadedmetadata", updateResolutionChip);
+				$("preview").addEventListener("resize", updateResolutionChip); // fires when the camera changes size or rotates
+				window.addEventListener("resize", updateStageRatio);
+				window.addEventListener("orientationchange", updateStageRatio);
 
 				if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
 					navigator.mediaDevices.addEventListener("devicechange", function () {
