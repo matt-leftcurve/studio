@@ -26,6 +26,7 @@
 	var state = null;
 	var root = null, stage = null, overlay = null, overlayKey = "";
 	var vids = {}; // role -> <video>
+	var hostStage = null, hostStageKey = "";
 
 	function el(tag, css) {
 		var e = document.createElement(tag);
@@ -49,6 +50,13 @@
 		});
 		overlay = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;display:none;");
 		stage.appendChild(overlay);
+		if (isHost) {
+			// Host: guests come from the SAME stage page OBS uses (scene-type views: no room caps, full quality).
+			// Matt's own panel is transparent there; our local camera <video> shows through underneath.
+			hostStage = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;");
+			hostStage.allow = "autoplay";
+			stage.appendChild(hostStage);
+		}
 		document.body.appendChild(root);
 		window.addEventListener("resize", fit);
 		fit();
@@ -87,6 +95,29 @@
 		if (isHost) {
 			root.style.display = name === "show" ? "none" : "";
 			if (name === "show") return;
+			var q = new URLSearchParams();
+			["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
+			q.set("layout", name);
+			var hk = q.toString();
+			if (hk !== hostStageKey) {
+				hostStageKey = hk;
+				hostStage.src = "./stage.html?" + hk; // no &audio: Matt hears guests via his room connections
+			} else {
+				try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name } }, "*"); } catch (e) {}
+			}
+			overlay.style.display = "none";
+			overlayKey = "";
+			Object.keys(vids).forEach(function (role) {
+				var v = vids[role], r = LAYOUTS[name].panels[role];
+				if (role !== "host" || !r) { v.style.display = "none"; return; }
+				v.style.display = "block";
+				v.style.left = r[0] + "px"; v.style.top = r[1] + "px"; v.style.width = r[2] + "px"; v.style.height = r[3] + "px";
+				var sm = streamFor(me);
+				if (sm && v.srcObject !== sm) { v.srcObject = sm; try { v.play(); } catch (e) {} }
+				v.style.transform = "scaleX(-1)";
+				v.style.objectFit = "cover";
+			});
+			return;
 		}
 		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG", share: state.sharer ? state.sharer + ":s" : "", sharer: state.sharer || "" };
 		Object.keys(vids).forEach(function (role) {
