@@ -43,7 +43,11 @@
 	function broadcast() {
 		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
 		try {
-			session.sendGenericData({ fpmStage: { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2, sharer: typeof sharing === "string" ? sharing : "" } });
+			var st = { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2, sharer: typeof sharing === "string" ? sharing : "" };
+			session.sendGenericData({ fpmStage: st });
+		} catch (e) {}
+		try {
+			if (window.fpmGuestView && window.fpmGuestView.set && st) window.fpmGuestView.set(st); // host's own stage view (&stageview)
 		} catch (e) {}
 	}
 	setInterval(broadcast, 4000);

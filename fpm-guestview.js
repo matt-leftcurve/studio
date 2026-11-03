@@ -10,7 +10,10 @@
 	"use strict";
 	var params = new URLSearchParams(window.location.search);
 	var me = params.get("push") || "";
-	if (!/^fpm/.test(me) || params.has("nostageview") || params.has("director") || params.has("scene")) {
+	// Host page opts in with &stageview (push=FPMHOST): sees the same layout as guests. The host page excludes the
+	// OBS program feed (FPMPROG), so for non-stage scenes it falls back to the stock grid instead of the "show" view.
+	var isHost = /^FPMHOST$/.test(me) && params.has("stageview");
+	if ((!/^fpm/.test(me) && !isHost) || params.has("nostageview") || params.has("director") || params.has("scene")) {
 		return;
 	}
 	var LAYOUTS = {
@@ -81,6 +84,10 @@
 		var name = LAYOUTS[state.layout] ? state.layout : "show";
 		var L = LAYOUTS[name];
 		build();
+		if (isHost) {
+			root.style.display = name === "show" ? "none" : "";
+			if (name === "show") return;
+		}
 		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG", share: state.sharer ? state.sharer + ":s" : "", sharer: state.sharer || "" };
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role];
@@ -142,7 +149,7 @@
 	// VDO keeps the ":s" stream connected and "live" after Stop, so the video alone can't tell).
 	var lastShare = null, lastSent = 0;
 	setInterval(function () {
-		if (!window.session || typeof session.sendGenericData !== "function") return;
+		if (isHost || !window.session || typeof session.sendGenericData !== "function") return;
 		var on = !!session.screenShareState;
 		var now = Date.now();
 		if (on !== lastShare || now - lastSent > 3000) {
@@ -152,5 +159,6 @@
 		}
 	}, 300);
 	setInterval(render, 2000); // re-bind streams that (re)connected
-	window.fpmGuestView = { state: function () { return state; }, render: render };
+	// The host page's own broadcasts never come back to it, so fpm-scenes.js hands them over directly.
+	window.fpmGuestView = { state: function () { return state; }, render: render, set: function (s) { state = s; render(); } };
 })();
