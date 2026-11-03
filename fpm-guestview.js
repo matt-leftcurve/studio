@@ -91,7 +91,9 @@
 
 	function render() {
 		if (!state || !window.session) return;
-		var name = LAYOUTS[state.layout] ? state.layout : "show";
+		// Non-stage OBS scenes (Solo, TradingView, …): guests see Matt full-frame from the stage page. The OBS virtual
+		// camera "Show" feed (FPMPROG) is retired (2026-11-03): nothing needs the virtual camera any more.
+		var name = LAYOUTS[state.layout] ? state.layout : isHost ? "show" : "solo";
 		var L = LAYOUTS[name];
 		build();
 		if (isHost) {
