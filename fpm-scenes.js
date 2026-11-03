@@ -28,6 +28,24 @@
 	var scenes = [];
 	var current = "";
 	var buttons = {};
+	// Stage relay: guests' pages (fpm-guestview.js) draw the same layout as OBS's stage page.
+	var STAGE_INPUT = params.get("stageinput") || "Stage";
+	var stageInfo = { g1: "", g2: "", h1: "", h2: "" };
+	function layoutFor(name) {
+		var n = String(name || "").toLowerCase();
+		if (n.indexOf("stage") === -1) return ""; // non-stage scenes: guests see the Show program feed
+		if (n.indexOf("trio") !== -1) return "trio";
+		if (n.indexOf("sbs") !== -1) return "sbs";
+		if (n.indexOf("solo") !== -1) return "solo";
+		return "";
+	}
+	function broadcast() {
+		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
+		try {
+			session.sendGenericData({ fpmStage: { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2 } });
+		} catch (e) {}
+	}
+	setInterval(broadcast, 4000);
 
 	function mount() {
 		if (document.body && !bar.isConnected) {
@@ -93,7 +111,7 @@
 				return;
 			}
 			if (d.op === 0) {
-				var ident = { rpcVersion: 1, eventSubscriptions: 4 }; // Scenes
+				var ident = { rpcVersion: 1, eventSubscriptions: 12 }; // Scenes + Inputs
 				if (d.d.authentication) {
 					var secret = await sha256b64(PASS + d.d.authentication.salt);
 					ident.authentication = await sha256b64(secret + d.d.authentication.challenge);
@@ -103,18 +121,30 @@
 				status.textContent = "";
 				status.style.display = "none";
 				send("GetSceneList");
+				send("GetInputSettings", { inputName: STAGE_INPUT });
 			} else if (d.op === 7) {
 				var r = d.d.responseData || {};
+				if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url) {
+					try {
+						var sp = new URL(r.inputSettings.url).searchParams;
+						stageInfo = { g1: sp.get("g1") || "", g2: sp.get("g2") || "", h1: sp.get("h1") || "", h2: sp.get("h2") || "" };
+					} catch (e) {}
+					broadcast();
+				}
 				if (d.d.requestType === "GetSceneList" && r.scenes) {
 					scenes = r.scenes.slice().sort(function (a, b) { return b.sceneIndex - a.sceneIndex; }).map(function (s) { return s.sceneName; });
 					current = r.currentProgramSceneName || current;
 					render();
+					broadcast();
 				}
 			} else if (d.op === 5) {
 				var ev = d.d.eventType;
 				if (ev === "CurrentProgramSceneChanged") {
 					current = d.d.eventData.sceneName;
 					render();
+					broadcast();
+				} else if (ev === "InputSettingsChanged" && d.d.eventData.inputName === STAGE_INPUT) {
+					send("GetInputSettings", { inputName: STAGE_INPUT });
 				} else if (ev === "SceneListChanged" || ev === "SceneNameChanged" || ev === "SceneCreated" || ev === "SceneRemoved") {
 					send("GetSceneList");
 				}
