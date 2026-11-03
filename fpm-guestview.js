@@ -17,6 +17,7 @@
 		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
 		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
+		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } },
 		show: { overlay: "", panels: { show: [0, 0, 1920, 1080] } }
 	};
 	var state = null;
@@ -35,7 +36,7 @@
 		root.className = "fpm-guestview";
 		stage = el("div", "position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;");
 		root.appendChild(stage);
-		["host", "g1", "g2", "show"].forEach(function (role) {
+		["host", "g1", "g2", "share", "sharer", "show"].forEach(function (role) {
 			var v = el("video", "position:absolute;object-fit:cover;background:#0e1a2b;display:none;");
 			v.muted = true;
 			v.autoplay = true;
@@ -75,7 +76,7 @@
 		var name = LAYOUTS[state.layout] ? state.layout : "show";
 		var L = LAYOUTS[name];
 		build();
-		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG" };
+		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG", share: state.sharer ? state.sharer + ":s" : "", sharer: state.sharer || "" };
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role];
 			var r = L.panels[role];
@@ -95,8 +96,15 @@
 			}
 			// mirror own camera like a normal self-view
 			v.style.transform = ids[role] === me ? "scaleX(-1)" : "";
+			v.style.objectFit = role === "share" ? "contain" : "cover";
+			v.style.background = role === "share" ? "#000" : "#0e1a2b";
 		});
-		var key = L.overlay ? L.overlay + "?h1=" + encodeURIComponent(state.h1 || "") + "&h2=" + encodeURIComponent(state.h2 || "") : "";
+		var h1 = state.h1 || "", h2 = state.h2 || "";
+		if (name === "share") {
+			h1 = state.sharer && state.sharer === state.g2 ? state.h2 || "" : state.h1 || "";
+			h2 = "";
+		}
+		var key = L.overlay ? L.overlay + "?h1=" + encodeURIComponent(h1) + "&h2=" + encodeURIComponent(h2) : "";
 		if (key !== overlayKey) {
 			overlayKey = key;
 			overlay.style.display = key ? "block" : "none";

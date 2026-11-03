@@ -12,6 +12,36 @@
 	if (params.has("noheal")) {
 		return;
 	}
+	// --- Publisher-side half (every publishing page, guests included) ---
+	// Stock offerSDP() ignores a viewer's new "play" request if our PC to that viewer still reads "connected"
+	// ("the other end is just being a keener"). When the VIEWER's end has died, that leaves it unable to ever
+	// reconnect without a reload. A repeat request for a peer that has been up > 10 s means the viewer lost us:
+	// close our stale end and offer fresh. Genuine double-requests arrive within seconds and are still ignored.
+	(function patchOffer() {
+		if (!window.session || typeof session.offerSDP !== "function") {
+			return setTimeout(patchOffer, 500);
+		}
+		if (session.__fpmOfferPatched) return;
+		session.__fpmOfferPatched = true;
+		var orig = session.offerSDP;
+		session.offerSDP = async function (UUID) {
+			try {
+				var pc = session.pcs && session.pcs[UUID];
+				if (pc && pc.connectionState === "connected" && pc.__fpmBorn && Date.now() - pc.__fpmBorn > 10000) {
+					try { console.warn("[fpm-heal] stale peer re-requested; resetting", UUID); } catch (e) {}
+					session.closePC(UUID);
+				}
+			} catch (e) {}
+			var r = await orig.apply(this, arguments);
+			try {
+				if (session.pcs && session.pcs[UUID] && !session.pcs[UUID].__fpmBorn) {
+					session.pcs[UUID].__fpmBorn = Date.now();
+				}
+			} catch (e) {}
+			return r;
+		};
+	})();
+
 	var isDirector = params.has("director") || params.has("dir");
 	var push = params.get("push") || params.get("id") || "";
 	var isStudioPush = /^FPM/.test(push);
@@ -77,8 +107,12 @@
 				return;
 			}
 			if (now >= k.nextTry) {
-				var waiting = session.waitingWatchList && session.waitingWatchList[sid];
-				if (!waiting) {
+				// A previous re-request that got no answer leaves waitingWatchList[sid] set forever; clear it so the
+				// retry really goes out again.
+				if (session.waitingWatchList && session.waitingWatchList[sid]) {
+					delete session.waitingWatchList[sid];
+				}
+				{
 					try {
 						session.requestStream(sid);
 						note("re-request " + sid + " (#" + (k.tries + 1) + ")");
@@ -101,7 +135,7 @@
 		if (!badge.isConnected) document.body.appendChild(badge);
 		var ids = Object.keys(known);
 		var lost = ids.filter(function (k) { return known[k].lostAt; });
-		badge.textContent = "heal v2 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
+		badge.textContent = "heal v3 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
 	}
 	setInterval(function () { tick(); paint(); }, 1000);
 	window.fpmHeal = {

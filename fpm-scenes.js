@@ -34,6 +34,7 @@
 	function layoutFor(name) {
 		var n = String(name || "").toLowerCase();
 		if (n.indexOf("stage") === -1) return ""; // non-stage scenes: guests see the Show program feed
+		if (n.indexOf("share") !== -1) return "share";
 		if (n.indexOf("trio") !== -1) return "trio";
 		if (n.indexOf("sbs") !== -1) return "sbs";
 		if (n.indexOf("solo") !== -1) return "solo";
@@ -42,10 +43,47 @@
 	function broadcast() {
 		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
 		try {
-			session.sendGenericData({ fpmStage: { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2 } });
+			session.sendGenericData({ fpmStage: { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2, sharer: typeof sharing === "string" ? sharing : "" } });
 		} catch (e) {}
 	}
 	setInterval(broadcast, 4000);
+
+	// Auto screen-share switching: when a guest's share ("<id>:s") goes live while a stage scene is on air,
+	// switch OBS to the Share scene; when it ends, return to the scene we came from (unless Matt moved on).
+	var SHARE_SCENE = params.get("sharescene") || "Stage - Share";
+	var sharing = ""; // guest id currently sharing
+	var beforeShare = "";
+	function liveShareId() {
+		if (!window.session || !session.rpcs) return "";
+		for (var U in session.rpcs) {
+			var r = session.rpcs[U];
+			var sid = r && r.streamID ? String(r.streamID) : "";
+			if (sid.slice(-2) !== ":s") continue;
+			var st = r.streamSrc || (r.videoElement && r.videoElement.srcObject);
+			if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live"; })) {
+				return sid.slice(0, -2);
+			}
+		}
+		return "";
+	}
+	setInterval(function () {
+		var now = liveShareId();
+		if (now === sharing) return;
+		var prev = sharing;
+		sharing = now;
+		if (now && !prev) {
+			if (/stage/i.test(current) && current !== SHARE_SCENE && scenes.indexOf(SHARE_SCENE) !== -1) {
+				beforeShare = current;
+				send("SetCurrentProgramScene", { sceneName: SHARE_SCENE });
+			}
+		} else if (!now && prev) {
+			if (current === SHARE_SCENE && beforeShare) {
+				send("SetCurrentProgramScene", { sceneName: beforeShare });
+			}
+			beforeShare = "";
+		}
+		broadcast();
+	}, 1000);
 
 	function mount() {
 		if (document.body && !bar.isConnected) {

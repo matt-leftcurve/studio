@@ -33,7 +33,9 @@
 	var LAYOUTS = {
 		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
-		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } }
+		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
+		// share: screen large, Matt top-right, the SHARING guest's camera bottom-right ("sharer" is g1 or g2)
+		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } }
 	};
 	var stage = document.getElementById("stage");
 
@@ -63,6 +65,42 @@
 		panels[role] = div;
 	});
 
+	// Screen shares: VDO publishes a guest's share as "<guestID>:s". Pull both seats' shares (idle until a share
+	// exists, no cost) into one share panel; whichever has live video is the one shown.
+	var sharePanel = document.createElement("div");
+	sharePanel.className = "panel";
+	sharePanel.style.background = "#000";
+	stage.appendChild(sharePanel);
+	var shareFrames = {};
+	["g1", "g2"].forEach(function (role) {
+		var id = q.get(role);
+		if (!id) return;
+		var f = document.createElement("iframe");
+		f.allow = "autoplay";
+		f.src = viewUrl(id + ":s").replace("&cover", "");
+		f.style.display = "none";
+		sharePanel.appendChild(f);
+		shareFrames[role] = f;
+	});
+	function liveShare() {
+		var roles = Object.keys(shareFrames);
+		for (var i = 0; i < roles.length; i++) {
+			try {
+				var w = shareFrames[roles[i]].contentWindow;
+				var rp = w && w.session && w.session.rpcs;
+				if (!rp) continue;
+				for (var U in rp) {
+					var st = rp[U] && (rp[U].streamSrc || (rp[U].videoElement && rp[U].videoElement.srcObject));
+					if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live"; })) {
+						return roles[i];
+					}
+				}
+			} catch (e) {}
+		}
+		return "";
+	}
+	var sharer = "";
+
 	var oq = new URLSearchParams();
 	if (q.get("h1")) oq.set("h1", q.get("h1"));
 	if (q.get("h2")) oq.set("h2", q.get("h2"));
@@ -83,7 +121,7 @@
 		current = name;
 		var L = LAYOUTS[name];
 		Object.keys(panels).forEach(function (role) {
-			var r = L.panels[role];
+			var r = L.panels[role] || (name === "share" && role === sharer ? L.panels.sharer : null);
 			var div = panels[role];
 			if (!r) {
 				div.style.display = "none";
@@ -95,6 +133,22 @@
 			div.style.width = r[2] + "px";
 			div.style.height = r[3] + "px";
 		});
+		var sr = L.panels.share;
+		sharePanel.style.display = sr ? "block" : "none";
+		if (sr) {
+			sharePanel.style.left = sr[0] + "px";
+			sharePanel.style.top = sr[1] + "px";
+			sharePanel.style.width = sr[2] + "px";
+			sharePanel.style.height = sr[3] + "px";
+			Object.keys(shareFrames).forEach(function (role) {
+				shareFrames[role].style.display = role === sharer ? "block" : "none";
+			});
+			var want = "stage/retro-share.html?h1=" + encodeURIComponent((sharer === "g2" ? q.get("h2") : q.get("h1")) || "");
+			if (overlays.share.getAttribute("data-src") !== want) {
+				overlays.share.setAttribute("data-src", want);
+				overlays.share.src = want;
+			}
+		}
 		Object.keys(overlays).forEach(function (n) {
 			overlays[n].style.display = n === name ? "block" : "none";
 		});
@@ -103,6 +157,7 @@
 
 	function layoutForScene(sceneName) {
 		var s = String(sceneName || "").toLowerCase();
+		if (s.indexOf("share") !== -1) return "share";
 		if (s.indexOf("trio") !== -1) return "trio";
 		if (s.indexOf("sbs") !== -1) return "sbs";
 		if (s.indexOf("solo") !== -1) return "solo";
@@ -110,6 +165,17 @@
 	}
 
 	setLayout(q.get("layout") || "trio");
+	setInterval(function () {
+		var now = liveShare() || sharer || "g1";
+		if (now !== sharer) {
+			sharer = now;
+			if (current === "share") {
+				var keep = current;
+				current = "";
+				setLayout(keep);
+			}
+		}
+	}, 1000);
 
 	// OBS integration: follow the live scene.
 	if (window.obsstudio) {
