@@ -75,10 +75,6 @@
 	if (q.get("h2")) oq.set("h2", q.get("h2"));
 	ov.src = L.overlay + (oq.toString() ? "?" + oq.toString() : "");
 	stage.appendChild(ov);
-	var logo = document.createElement("img");
-	logo.id = "logo";
-	logo.src = "stage/laoshi_logo.png";
-	stage.appendChild(logo);
 
 	function fit() {
 		if (MODE === "obs") {
