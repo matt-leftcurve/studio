@@ -2045,8 +2045,24 @@
 					// Guests pull everyone else's video with a shared budget; the stock default is 500 kbps TOTAL, which makes
 					// Matt's 1080p camera arrive blurry. 6000 kbps total (split across visible feeds); WebRTC still backs off
 					// on weak connections. Override with &totalroombitrate=N on the invite.
+					// 2026-11-03: 9000 total for cameras; screen shares get their own fixed 3000 on top (screensharebitrate,
+					// viewer side). &noscale = request full resolution from other guests (the stage view shows them large,
+					// stock VDO would size them to its hidden grid tiles).
 					if (!params.has("totalroombitrate")) {
-						parts.push("totalroombitrate=6000");
+						parts.push("totalroombitrate=9000");
+					}
+					parts.push("screensharebitrate=3000");
+					parts.push("noscale");
+					// Our OWN screen share: 1080p cap (Retina full-res is expensive to encode once per viewer, the main
+					// source of share lag), 24 fps, "detail" hint = keep text sharp, drop frames rather than blur.
+					parts.push("screensharequality=1080p");
+					parts.push("screensharefps=24");
+					parts.push("sscontenthint=detail");
+					// &fpmrelay on the invite (not &relay: that is a stock VDO param, force-TURN): send the screen share through VDO's Meshcast relay (third-party SFU, guest uploads
+					// the screen once). Cameras stay peer-to-peer. Off by default.
+					if (params.has("fpmrelay")) {
+						parts.push("meshcast");
+						parts.push("meshcastscreenonly");
 					}
 					parts.push("darkmode");
 					parts.push("hidesolo");

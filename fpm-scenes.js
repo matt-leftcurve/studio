@@ -92,12 +92,12 @@
 			if (!an.on) continue;
 			if (!an.since) an.since = Date.now();
 			// Go to the Share scene once the share video has reached us (so the panel isn't black on air),
-			// or after 5 s regardless.
+			// or after 1.5 s regardless.
 			var arrived = false;
 			for (var U1 in session.rpcs) {
 				if (session.rpcs[U1] && session.rpcs[U1].streamID === ann[a] + ":s") arrived = true;
 			}
-			if (arrived || Date.now() - an.since > 5000) return ann[a];
+			if (arrived || Date.now() - an.since > 1500) return ann[a];
 		}
 		for (var U in session.rpcs) {
 			var r = session.rpcs[U];
