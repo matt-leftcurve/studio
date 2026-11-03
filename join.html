@@ -2051,6 +2051,10 @@
 						parts.push("totalroombitrate=9000");
 					}
 					parts.push("screensharebitrate=3000");
+					// &scale=100: ask every sender for FULL resolution. Stock VDO requests each feed at the CSS size of its grid
+					// tile (ignoring Retina devicePixelRatio), and our stage view shows feeds larger than those hidden tiles, so
+					// feeds arrived ~640px wide and looked blurry. (This is the viewer-side switch; &noscale is sender-side.)
+					parts.push("scale=100");
 					// Our OWN screen share: 1080p cap (Retina full-res is expensive to encode once per viewer, the main
 					// source of share lag), 24 fps, "detail" hint = keep text sharp, drop frames rather than blur.
 					parts.push("screensharequality=1080p");
