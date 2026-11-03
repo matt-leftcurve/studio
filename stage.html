@@ -7,36 +7,34 @@
 <style>
 	html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 	#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
-	.panel { position: absolute; overflow: hidden; background: transparent; }
+	.panel { position: absolute; overflow: hidden; background: transparent; display: none; }
 	.panel iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
 	.panel.empty { background: #0e1a2b; }
-	#overlay { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; pointer-events: none; z-index: 10; background: transparent; }
-	#logo { position: absolute; left: 22px; top: 6px; height: 150px; z-index: 11; pointer-events: none; }
+	.overlay { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; pointer-events: none; z-index: 10; background: transparent; display: none; }
 </style>
 </head>
 <body>
 <div id="stage"></div>
 <script>
-// FULLPORTMATT stage page (prototype). One definition of each guest layout.
-// OBS loads it as a single 1920x1080 browser source (&mode=obs): guests are pulled in as full-quality
-// scene views by stream ID (same kind of connection as today's per-guest OBS panels), Matt's camera
-// panel is left transparent so OBS's native camera layer shows through underneath.
-// Params: layout=solo|sbs|trio, g1=<guest stream id>, g2=<id>, h1/h2=<@handles>, room=fpmshow,
-//         mode=obs (default) | view (renders Matt's panel from the host feed too, scaled to the window),
-//         audio=1 to let guest audio play (default muted; production audio still comes via OBS sources).
+// FULLPORTMATT stage page. One definition of each guest layout.
+// In OBS: ONE browser source (1920x1080, stretched to the canvas) shared by every "Stage - …" scene. OBS tells
+// the page which scene is live (window.obsstudio / obsSceneChanged) and the page switches layout itself:
+// no reload, guests stay connected, each guest is pulled once (full-quality scene view by stream ID).
+// Matt's panel is transparent in OBS (native camera layer underneath).
+// Params: g1, g2 = guest stream IDs; h1, h2 = @handles; room (fpmshow); layout = default when OBS gives no
+// scene; mode=obs (default) | view (draws Matt's panel from the host feed too and scales to the window);
+// audio=1 lets guest audio play (OBS routes it monitor-only, like the old per-guest sources).
 (function () {
 	var q = new URLSearchParams(location.search);
 	var ROOM = q.get("room") || "fpmshow";
-	var LAYOUT = q.get("layout") || "trio";
 	var MODE = q.get("mode") || "obs";
 	var AUDIO = q.get("audio") === "1";
 	var HOST = q.get("host") || "FPMHOST";
 	var LAYOUTS = {
-		solo: { overlay: "stage/retro-solo.html", panels: [["host", 0, 0, 1920, 1080]] },
-		sbs: { overlay: "stage/retro-sbs.html", panels: [["host", 0, 165, 950, 810], ["g1", 970, 165, 950, 810]] },
-		trio: { overlay: "stage/retro-trio.html", panels: [["host", 0, 165, 630, 810], ["g1", 645, 165, 630, 810], ["g2", 1290, 165, 630, 810]] }
+		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
+		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
+		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } }
 	};
-	var L = LAYOUTS[LAYOUT] || LAYOUTS.trio;
 	var stage = document.getElementById("stage");
 
 	function viewUrl(id) {
@@ -47,15 +45,11 @@
 		return u;
 	}
 
-	L.panels.forEach(function (p) {
-		var role = p[0];
+	// Panels are created once and only moved/shown/hidden on layout change (no reconnects).
+	var panels = {};
+	["host", "g1", "g2"].forEach(function (role) {
 		var div = document.createElement("div");
 		div.className = "panel";
-		div.id = "panel-" + role;
-		div.style.left = p[1] + "px";
-		div.style.top = p[2] + "px";
-		div.style.width = p[3] + "px";
-		div.style.height = p[4] + "px";
 		var id = role === "host" ? (MODE === "obs" ? "" : HOST) : q.get(role) || "";
 		if (id) {
 			var f = document.createElement("iframe");
@@ -66,15 +60,76 @@
 			div.className += " empty";
 		}
 		stage.appendChild(div);
+		panels[role] = div;
 	});
 
-	var ov = document.createElement("iframe");
-	ov.id = "overlay";
 	var oq = new URLSearchParams();
 	if (q.get("h1")) oq.set("h1", q.get("h1"));
 	if (q.get("h2")) oq.set("h2", q.get("h2"));
-	ov.src = L.overlay + (oq.toString() ? "?" + oq.toString() : "");
-	stage.appendChild(ov);
+	var overlays = {};
+	Object.keys(LAYOUTS).forEach(function (name) {
+		var ov = document.createElement("iframe");
+		ov.className = "overlay";
+		ov.src = LAYOUTS[name].overlay + (oq.toString() ? "?" + oq.toString() : "");
+		stage.appendChild(ov);
+		overlays[name] = ov;
+	});
+
+	var current = "";
+	function setLayout(name) {
+		if (!LAYOUTS[name] || name === current) {
+			return;
+		}
+		current = name;
+		var L = LAYOUTS[name];
+		Object.keys(panels).forEach(function (role) {
+			var r = L.panels[role];
+			var div = panels[role];
+			if (!r) {
+				div.style.display = "none";
+				return;
+			}
+			div.style.display = "block";
+			div.style.left = r[0] + "px";
+			div.style.top = r[1] + "px";
+			div.style.width = r[2] + "px";
+			div.style.height = r[3] + "px";
+		});
+		Object.keys(overlays).forEach(function (n) {
+			overlays[n].style.display = n === name ? "block" : "none";
+		});
+		document.title = "FULLPORTMATT stage · " + name;
+	}
+
+	function layoutForScene(sceneName) {
+		var s = String(sceneName || "").toLowerCase();
+		if (s.indexOf("trio") !== -1) return "trio";
+		if (s.indexOf("sbs") !== -1) return "sbs";
+		if (s.indexOf("solo") !== -1) return "solo";
+		return "";
+	}
+
+	setLayout(q.get("layout") || "trio");
+
+	// OBS integration: follow the live scene.
+	if (window.obsstudio) {
+		try {
+			window.obsstudio.getCurrentScene(function (scene) {
+				var l = layoutForScene(scene && scene.name);
+				if (l) setLayout(l);
+			});
+		} catch (e) {}
+		window.addEventListener("obsSceneChanged", function (ev) {
+			var l = layoutForScene(ev.detail && ev.detail.name);
+			if (l) setLayout(l);
+		});
+	}
+	// Also accept postMessage({fpmStage:{layout}}) for non-OBS embeds (guest/host views).
+	window.addEventListener("message", function (ev) {
+		var d = ev.data;
+		if (d && d.fpmStage && d.fpmStage.layout) setLayout(d.fpmStage.layout);
+	});
+	window.fpmStage = { setLayout: setLayout, layout: function () { return current; } };
 
 	function fit() {
 		if (MODE === "obs") {
