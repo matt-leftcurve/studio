@@ -92,7 +92,18 @@
 		});
 	}
 
-	setInterval(tick, 1000);
+	// Small visible badge (bottom-right) so the operator can see the watchdog is alive and what it did.
+	var badge = document.createElement("div");
+	badge.style.cssText = "position:fixed;right:8px;bottom:8px;z-index:99998;max-width:46vw;padding:4px 8px;border-radius:6px;" +
+		"font:11px/1.3 ui-monospace,Menlo,monospace;color:#cfe;background:rgba(10,20,30,.8);pointer-events:none;white-space:pre";
+	function paint() {
+		if (!document.body) return;
+		if (!badge.isConnected) document.body.appendChild(badge);
+		var ids = Object.keys(known);
+		var lost = ids.filter(function (k) { return known[k].lostAt; });
+		badge.textContent = "heal v2 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
+	}
+	setInterval(function () { tick(); paint(); }, 1000);
 	window.fpmHeal = {
 		state: function () {
 			return { known: known, log: log.slice() };
