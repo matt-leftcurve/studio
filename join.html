@@ -1184,8 +1184,37 @@
 				guestId = guestId.trim().replace(/[\W]+/g, "_");
 				roomName = roomName.trim().replace(/[\W]+/g, "_");
 
+				// One invite link for everyone (NOTES.md section J): the bare studio URL lands here without an id
+				// and without a room. The room defaults to the show room; the stream ID is generated per join so two
+				// guests can never collide. An explicit ?id=…&room=… link keeps working as before.
+				var DEFAULT_ROOM = "fpmshow";
+				var generatedId = false;
+				if (!roomName) {
+					roomName = DEFAULT_ROOM;
+				}
+				function randomStreamId() {
+					var chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+					var out = "fpm";
+					var bytes = null;
+					try {
+						bytes = new Uint8Array(10);
+						window.crypto.getRandomValues(bytes);
+					} catch (e) {
+						bytes = null;
+					}
+					for (var i = 0; i < 10; i++) {
+						var n = bytes ? bytes[i] : Math.floor(Math.random() * 256);
+						out += chars.charAt(n % chars.length);
+					}
+					return out;
+				}
+				if (!guestId) {
+					guestId = randomStreamId();
+					generatedId = true;
+				}
+
 				// Invite-link params this page consumes or sets itself; all others pass through to the studio URL.
-				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo", "hold", "nohold", "seat", "g", "ssb", "screensharebutton"];
+				var PASSTHROUGH_EXCLUDE = ["id", "push", "room", "name", "label", "l", "videodevice", "audiodevice", "sink", "aec", "denoise", "autogain", "webcam", "hiddenrecord", "autostart", "quality", "q", "darkmode", "hidesolo", "hold", "nohold", "seat", "g", "ssb", "screensharebutton", "fbclid", "gclid", "igshid"];
 
 				// Phones and tablets: front camera only, portrait-aware preview box. Desktops keep the full camera list.
 				var ua = navigator.userAgent || "";
@@ -2121,12 +2150,7 @@
 					} catch (e) {}
 				}
 
-				if (!guestId || !roomName) {
-					log("missing id/room in invite link");
-					show("badlink");
-				} else {
-					log("invite ok: id=" + guestId + " room=" + roomName);
-				}
+				log("invite ok: id=" + guestId + (generatedId ? " (generated for this join)" : "") + " room=" + roomName);
 			})();
 		</script>
 	</body>

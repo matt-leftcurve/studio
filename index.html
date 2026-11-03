@@ -16,22 +16,49 @@
 		
 		</script>
 		<script>
-			// FULLPORTMATT: minimal guest links. "?g=1" / "?g=2" open the branded join flow (join.html)
-			// for that seat before the stock app boots. join.html adds the room defaults (hold,
-			// hiddenrecord, quality). Any other query string falls through to the normal app.
+			// FULLPORTMATT: one invite link for every guest (NOTES.md section J).
+			// The truly param-less studio root (https://matt-leftcurve.github.io/studio/) is the guest entry:
+			// it opens the branded join flow for the show room, which generates a unique stream ID per join.
+			// Legacy "?g=1" / "?g=2" links (with or without messenger tracking params) land on the same flow.
+			// ANY other app parameter (director, push, view, scene, room, invite, preset, ...) in the query or
+			// the #fragment falls through to the stock app untouched. "?home" shows the stock homepage.
 			(function () {
 				try {
-					var seat = /^\?g=(\d+)$/.exec(window.location.search);
-					if (!seat) {
+					var path = window.location.pathname;
+					var last = path.substring(path.lastIndexOf("/") + 1);
+					if (last !== "" && last !== "index.html") {
+						return; // path-style room names (/studio/<room>) and other pages are not the guest root
+					}
+					var IGNORABLE = /^(fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|utm_[a-z_]+)$/i;
+					var keys = [];
+					var collect = function (str) {
+						str = (str || "").replace(/\?/g, "&");
+						var pairs = str.split("&");
+						for (var i = 0; i < pairs.length; i++) {
+							if (!pairs[i]) {
+								continue;
+							}
+							var eq = pairs[i].indexOf("=");
+							var key = eq === -1 ? pairs[i] : pairs[i].substring(0, eq);
+							var value = eq === -1 ? "" : pairs[i].substring(eq + 1);
+							try {
+								key = decodeURIComponent(key);
+							} catch (e) {}
+							if (IGNORABLE.test(key)) {
+								continue;
+							}
+							if (key === "g" && /^\d+$/.test(value)) {
+								continue; // old ?g=N seat link (seats no longer exist): same guest entry
+							}
+							keys.push(key);
+						}
+					};
+					collect(window.location.search);
+					collect(window.location.hash.replace(/^#/, ""));
+					if (keys.length) {
 						return;
 					}
-					var seats = { "1": "G5EgnZp", "2": "G2FpmQx" };
-					var target = "./join.html?room=fpmshow&seat=" + seat[1];
-					if (seats[seat[1]]) {
-						target += "&id=" + seats[seat[1]];
-					}
-					// An unknown seat number still lands on join.html, which shows its "incomplete link" screen.
-					window.location.replace(target);
+					window.location.replace("./join.html?room=fpmshow");
 				} catch (e) {
 					console.error(e);
 				}
