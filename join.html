@@ -2,6 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<meta name="fpm-build" content="11-03 01:22" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="robots" content="noindex" />
 		<title>Join the FULLPORTMATT Studio</title>
@@ -2112,7 +2113,8 @@
 					}
 					// Release the devices so the studio can claim them immediately.
 					stopTracks(stream);
-					location.href = url;
+					// fpmt: unique URL so the studio page is never served from cache (VDO ignores unknown params)
+					location.href = url + (url.indexOf("?") === -1 ? "?" : "&") + "fpmt=" + Date.now();
 				}
 
 				// --- Wiring ------------------------------------------------------------------
@@ -2196,5 +2198,7 @@
 				log("invite ok: id=" + guestId + (generatedId ? " (generated for this join)" : "") + " room=" + roomName);
 			})();
 		</script>
-	</body>
+	<div id="fpmBuild" style="position:fixed;right:8px;bottom:6px;font:11px ui-monospace,Menlo,monospace;color:#7d8aa0;opacity:.8;pointer-events:none"></div>
+<script>try{document.getElementById("fpmBuild").textContent="build "+document.querySelector('meta[name="fpm-build"]').content;}catch(e){}</script>
+</body>
 </html>

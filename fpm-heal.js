@@ -139,7 +139,8 @@
 		if (!badge.isConnected) document.body.appendChild(badge);
 		var ids = Object.keys(known);
 		var lost = ids.filter(function (k) { return known[k].lostAt; });
-		badge.textContent = "heal v4 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
+		var bm = document.querySelector('meta[name="fpm-build"]');
+		badge.textContent = "build " + (bm ? bm.content : "?") + " · heal v4 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
 	}
 	setInterval(function () { tick(); paint(); }, 1000);
 	window.fpmHeal = {

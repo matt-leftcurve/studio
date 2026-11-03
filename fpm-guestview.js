@@ -217,5 +217,13 @@
 	}, 300);
 	setInterval(render, 2000); // re-bind streams that (re)connected
 	// The host page's own broadcasts never come back to it, so fpm-scenes.js hands them over directly.
+	// Build stamp (bottom-left) so we can tell which deploy a guest actually loaded.
+	(function badge() {
+		if (!document.body) return setTimeout(badge, 500);
+		var m = document.querySelector('meta[name="fpm-build"]');
+		var b = el("div", "position:fixed;left:6px;bottom:4px;z-index:99999;font:10px ui-monospace,Menlo,monospace;color:#7d8aa0;opacity:.75;pointer-events:none");
+		b.textContent = "build " + (m ? m.content : "?");
+		document.body.appendChild(b);
+	})();
 	window.fpmGuestView = { state: function () { return state; }, render: render, set: function (s) { state = s; render(); } };
 })();
