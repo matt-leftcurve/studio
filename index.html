@@ -31,6 +31,7 @@
 					}
 					var IGNORABLE = /^(fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|utm_[a-z_]+)$/i;
 					var keys = [];
+					var hold = false;
 					var collect = function (str) {
 						str = (str || "").replace(/\?/g, "&");
 						var pairs = str.split("&");
@@ -50,6 +51,10 @@
 							if (key === "g" && /^\d+$/.test(value)) {
 								continue; // old ?g=N seat link (seats no longer exist): same guest entry
 							}
+							if (key === "hold") {
+								hold = true; // invite variant: guest waits in the waiting room until activated
+								continue;
+							}
 							keys.push(key);
 						}
 					};
@@ -58,7 +63,7 @@
 					if (keys.length) {
 						return;
 					}
-					window.location.replace("./join.html?room=fpmshow");
+					window.location.replace("./join.html?room=fpmshow" + (hold ? "&hold" : ""));
 				} catch (e) {
 					console.error(e);
 				}

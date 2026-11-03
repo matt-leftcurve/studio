@@ -1208,9 +1208,24 @@
 					}
 					return out;
 				}
+				// Sticky per device: a guest who drops and re-joins from the same browser gets the SAME stream ID back,
+				// so a slot reserved for them on the director page (&slotmode) follows them. Different devices still get
+				// different IDs, so two guests can never collide.
 				if (!guestId) {
-					guestId = randomStreamId();
-					generatedId = true;
+					var STICKY_KEY = "fpm_guest_stream_id_" + roomName;
+					try {
+						var saved = window.localStorage.getItem(STICKY_KEY);
+						if (saved && /^fpm[A-Za-z0-9]{10}$/.test(saved)) {
+							guestId = saved;
+						}
+					} catch (e) {}
+					if (!guestId) {
+						guestId = randomStreamId();
+						generatedId = true;
+						try {
+							window.localStorage.setItem(STICKY_KEY, guestId);
+						} catch (e) {}
+					}
 				}
 
 				// Invite-link params this page consumes or sets itself; all others pass through to the studio URL.
@@ -2033,8 +2048,10 @@
 					if (canShareScreen) {
 						parts.push("ssb");
 					}
-					// Waiting room: guests connect held (&hold) until Matt activates them. &nohold on the invite link skips it.
-					if (!params.has("nohold")) {
+					// Green room by default (2026-11-02): guests land straight in the room. Seats on the stream come from the
+					// director's slots (&slotmode); a guest outside slots 1-2 is neither seen nor heard on the stream.
+					// &hold on the invite link restores the old waiting room.
+					if (params.has("hold")) {
 						parts.push("hold");
 					}
 					// Anything else on the invite link (e.g. &password=, &bitrate=) passes through untouched.
