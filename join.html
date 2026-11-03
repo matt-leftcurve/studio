@@ -2042,6 +2042,12 @@
 					}
 					// In-room polish (see NOTES.md): 1080p capture, dark theme, no solo links.
 					parts.push("quality=0");
+					// Guests pull everyone else's video with a shared budget; the stock default is 500 kbps TOTAL, which makes
+					// Matt's 1080p camera arrive blurry. 6000 kbps total (split across visible feeds); WebRTC still backs off
+					// on weak connections. Override with &totalroombitrate=N on the invite.
+					if (!params.has("totalroombitrate")) {
+						parts.push("totalroombitrate=6000");
+					}
 					parts.push("darkmode");
 					parts.push("hidesolo");
 					// Share screen button in the guest control bar (&ssb); phones have no getDisplayMedia, so they skip it.
