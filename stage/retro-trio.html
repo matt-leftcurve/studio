@@ -138,7 +138,7 @@ async function poll(){
   }
   render();
 }
-render(); poll(); setInterval(poll,30000);
+render(); if(new URLSearchParams(location.search).has("ticker")){poll(); setInterval(poll,30000);} // CoinGecko polling PAUSED 2026-11-03 (rate limit backoff); add ?ticker to re-enable
 </script>
 </body>
 </html>
