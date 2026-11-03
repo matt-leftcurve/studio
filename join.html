@@ -2054,6 +2054,9 @@
 					// Phones: stock VDO caps a MOBILE guest's video to other room members (incl. Matt's host page and other
 					// guests) at 350 kbps / tiny resolution; only OBS scene views get full quality. Lift it (2026-11-03).
 					parts.push("nomobilebitratecap");
+					// Guests see everyone through the stage page (scene views, OBS quality; fpm-guestview.js), so their room
+					// connections carry audio only: &novideo saves every guest an upload per other guest.
+					parts.push("novideo");
 					// Our OWN screen share: 1080p cap (Retina full-res is expensive to encode once per viewer, the main
 					// source of share lag), 24 fps, "detail" hint = keep text sharp, drop frames rather than blur.
 					parts.push("screensharequality=1080p");

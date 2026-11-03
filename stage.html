@@ -30,6 +30,9 @@
 	var MODE = q.get("mode") || "obs";
 	var AUDIO = q.get("audio") === "1";
 	var HOST = q.get("host") || "FPMHOST";
+	// self=<id>: embedded in that guest's own page; their panel (and their own screen share) stays transparent so
+	// the page can show its LOCAL camera/share underneath (zero delay, no self-view over the network).
+	var SELF = q.get("self") || "";
 	var LAYOUTS = {
 		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
@@ -53,12 +56,14 @@
 		var div = document.createElement("div");
 		div.className = "panel";
 		var id = role === "host" ? (MODE === "obs" ? "" : HOST) : q.get(role) || "";
+		var isSelf = !!SELF && id === SELF;
+		if (isSelf) id = "";
 		if (id) {
 			var f = document.createElement("iframe");
 			f.allow = "autoplay";
 			f.src = viewUrl(id);
 			div.appendChild(f);
-		} else if (role !== "host") {
+		} else if (role !== "host" && !isSelf) {
 			div.className += " empty";
 		}
 		stage.appendChild(div);
@@ -74,7 +79,7 @@
 	var shareFrames = {};
 	["g1", "g2"].forEach(function (role) {
 		var id = q.get(role);
-		if (!id) return;
+		if (!id || (SELF && id === SELF)) return;
 		var f = document.createElement("iframe");
 		f.allow = "autoplay";
 		f.src = viewUrl(id + ":s").replace("&cover", "");
@@ -100,6 +105,7 @@
 		return "";
 	}
 	var sharer = "";
+	var sharerHint = ""; // role, from the embedding page's {fpmStage:{sharer:<id>}}
 
 	var oq = new URLSearchParams();
 	if (q.get("h1")) oq.set("h1", q.get("h1"));
@@ -135,6 +141,7 @@
 		});
 		var sr = L.panels.share;
 		sharePanel.style.display = sr ? "block" : "none";
+		sharePanel.style.background = SELF && q.get(sharer) === SELF ? "transparent" : "#000";
 		if (sr) {
 			sharePanel.style.left = sr[0] + "px";
 			sharePanel.style.top = sr[1] + "px";
@@ -166,7 +173,7 @@
 
 	setLayout(q.get("layout") || "trio");
 	setInterval(function () {
-		var now = liveShare() || sharer || "g1";
+		var now = sharerHint || liveShare() || sharer || "g1";
 		if (now !== sharer) {
 			sharer = now;
 			if (current === "share") {
@@ -193,6 +200,10 @@
 	// Also accept postMessage({fpmStage:{layout}}) for non-OBS embeds (guest/host views).
 	window.addEventListener("message", function (ev) {
 		var d = ev.data;
+		if (d && d.fpmStage && "sharer" in d.fpmStage) {
+			var sid = d.fpmStage.sharer || "";
+			sharerHint = sid && sid === q.get("g1") ? "g1" : sid && sid === q.get("g2") ? "g2" : "";
+		}
 		if (d && d.fpmStage && d.fpmStage.layout) setLayout(d.fpmStage.layout);
 	});
 	window.fpmStage = { setLayout: setLayout, layout: function () { return current; } };

@@ -26,7 +26,7 @@
 	var state = null;
 	var root = null, stage = null, overlay = null, overlayKey = "";
 	var vids = {}; // role -> <video>
-	var hostStage = null, hostStageKey = "";
+	var hostStage = null, hostStageKey = "", showFrame = null;
 
 	function el(tag, css) {
 		var e = document.createElement(tag);
@@ -50,13 +50,15 @@
 		});
 		overlay = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;display:none;");
 		stage.appendChild(overlay);
-		if (isHost) {
-			// Host: guests come from the SAME stage page OBS uses (scene-type views: no room caps, full quality).
-			// Matt's own panel is transparent there; our local camera <video> shows through underneath.
-			hostStage = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;");
-			hostStage.allow = "autoplay";
-			stage.appendChild(hostStage);
-		}
+		// Other people come from the SAME stage page OBS uses (scene-type views: none of VDO's room-member caps, so the
+		// same quality as OBS). Our own panel is transparent there; our LOCAL camera/share <video> shows underneath.
+		hostStage = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;");
+		hostStage.allow = "autoplay";
+		stage.appendChild(hostStage);
+		// Non-stage scenes: guests see the OBS program feed, also as a scene view.
+		showFrame = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:#060b12;display:none;");
+		showFrame.allow = "autoplay";
+		stage.appendChild(showFrame);
 		document.body.appendChild(root);
 		window.addEventListener("resize", fit);
 		fit();
@@ -95,30 +97,54 @@
 		if (isHost) {
 			root.style.display = name === "show" ? "none" : "";
 			if (name === "show") return;
-			var q = new URLSearchParams();
-			["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
-			q.set("layout", name);
-			var hk = q.toString();
-			if (hk !== hostStageKey) {
-				hostStageKey = hk;
-				hostStage.src = "./stage.html?" + hk; // no &audio: Matt hears guests via his room connections
-			} else {
-				try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name } }, "*"); } catch (e) {}
-			}
+		}
+		if (name === "show") {
+			hostStage.style.display = "none";
+			Object.keys(vids).forEach(function (role) { vids[role].style.display = "none"; });
 			overlay.style.display = "none";
 			overlayKey = "";
-			Object.keys(vids).forEach(function (role) {
-				var v = vids[role], r = LAYOUTS[name].panels[role];
-				if (role !== "host" || !r) { v.style.display = "none"; return; }
-				v.style.display = "block";
-				v.style.left = r[0] + "px"; v.style.top = r[1] + "px"; v.style.width = r[2] + "px"; v.style.height = r[3] + "px";
-				var sm = streamFor(me);
-				if (sm && v.srcObject !== sm) { v.srcObject = sm; try { v.play(); } catch (e) {} }
-				v.style.transform = "scaleX(-1)";
-				v.style.objectFit = "cover";
-			});
+			if (!showFrame.getAttribute("src")) showFrame.src = "./?view=" + encodeURIComponent(state.show || "FPMPROG") + "&scene&room=fpmshow&cover&noaudio&label=Show";
+			showFrame.style.display = "block";
 			return;
 		}
+		showFrame.style.display = "none";
+		hostStage.style.display = "block";
+		var q = new URLSearchParams();
+		["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
+		if (!isHost) {
+			q.set("mode", "view"); // Matt's panel via a scene view of FPMHOST
+			q.set("self", me);
+		}
+		var hk = q.toString();
+		if (hk !== hostStageKey) {
+			// (re)load only when the seats change; layout changes go by postMessage so nobody reconnects
+			hostStageKey = hk;
+			hostStage.src = "./stage.html?" + hk + "&layout=" + name; // no &audio: audio comes from the room connections
+		}
+		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name, sharer: state.sharer || "" } }, "*"); } catch (e) {}
+		overlay.style.display = "none"; // the stage page draws the overlay
+		overlayKey = "";
+		var Lp = LAYOUTS[name].panels;
+		var local = {}; // role -> stream id, for panels that show OUR OWN media locally
+		if (isHost) local.host = me;
+		else {
+			if (state.g1 === me && Lp.g1) local.g1 = me;
+			if (state.g2 === me && Lp.g2) local.g2 = me;
+			if (name === "share" && state.sharer === me) { local.sharer = me; local.share = me + ":s"; }
+		}
+		Object.keys(vids).forEach(function (role) {
+			var v = vids[role], r = Lp[role];
+			if (!local[role] || !r) { v.style.display = "none"; return; }
+			v.style.display = "block";
+			v.style.left = r[0] + "px"; v.style.top = r[1] + "px"; v.style.width = r[2] + "px"; v.style.height = r[3] + "px";
+			var sm = streamFor(local[role]);
+			if (sm && v.srcObject !== sm) { v.srcObject = sm; try { v.play(); } catch (e) {} }
+			v.style.transform = local[role] === me ? "scaleX(-1)" : "";
+			v.style.objectFit = role === "share" ? "contain" : "cover";
+			v.style.background = role === "share" ? "#000" : "#0e1a2b";
+		});
+		return;
+
 		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG", share: state.sharer ? state.sharer + ":s" : "", sharer: state.sharer || "" };
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role];
