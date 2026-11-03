@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0;width:1920px;height:1080px;overflow:hidden;background:rgba(0,0,0,0);}
+  /* top band: 马特老师 logo strip sliced from bg (y 0..165 @1920 scale) */
+  #topband{position:absolute;top:0;left:0;width:1920px;height:70px;
+    background:linear-gradient(180deg,#10222c 0%,#0a161e 100%);
+    border-bottom:3px solid rgba(201,161,95,0.8);box-shadow:0 4px 18px rgba(0,0,0,0.55);}
+  /* bottom band: ticker strip sliced from bg (y 975..1080) */
+  #botband{position:absolute;bottom:0;left:0;width:1920px;height:105px;
+    background-image:url("bg-laoshi.png");background-size:1920px 1080px;background-position:0 -975px;
+    border-top:3px solid rgba(201,161,95,0.8);box-shadow:0 -4px 18px rgba(0,0,0,0.55);}
+  /* social handles (same as main overlay) */
+  #social{position:absolute;right:40px;top:8px;text-align:right;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  #social .row{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:5px;}
+  #social .icon{font-weight:800;font-size:17px;color:#0b1a20;background:#7fd4c1;border-radius:4px;
+    width:23px;height:23px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(127,212,193,0.35);}
+  #social .icon.yt{background:#ff6b5e;color:#0b1a20;font-size:10px;letter-spacing:0;}
+  #social .handle{color:#9fe0d0;font-size:17px;font-weight:700;letter-spacing:1px;text-shadow:0 0 8px rgba(127,212,193,0.4);}
+  /* live ticker over the bottom band (same geometry as main overlay, shifted into band coords) */
+  #ticker{position:absolute;left:250px;bottom:50px;width:1360px;height:58px;background:#0a161e;
+    display:flex;align-items:stretch;overflow:hidden;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  .seg{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;
+    border-left:2px solid #3a4a44;transform:skewX(-14deg);margin-left:4px;background:#0d1a14;
+    box-shadow:inset 0 0 0 1px rgba(210,190,140,0.25);}
+  .seg > div{transform:skewX(14deg);display:flex;align-items:center;gap:8px;}
+  .sym{color:#e8e3d5;font-weight:700;font-size:19px;letter-spacing:1px;}
+  .price{color:#d8c99a;font-weight:600;font-size:18px;}
+  .chg{font-weight:700;font-size:18px;}
+  .up{color:#57d98a;} .down{color:#ff6b5e;}
+  .arrow{font-size:15px;}
+  /* effects restricted to the bands so camera stays clean */
+  .scan{position:absolute;left:0;width:100%;pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,0.14) 0px, rgba(0,0,0,0.14) 1px, transparent 2px, transparent 4px);
+    mix-blend-mode:multiply;}
+  #scantop{top:0;height:70px;} #scanbot{bottom:0;height:105px;}
+  .shine{position:absolute;top:0;width:220px;height:70px;pointer-events:none;
+    background:linear-gradient(105deg, transparent, rgba(160,220,255,0.07) 45%, rgba(160,220,255,0.1) 50%, rgba(160,220,255,0.07) 55%, transparent);
+    animation:shine 8s linear infinite;}
+  @keyframes shine{from{left:-240px;}to{left:1920px;}}
+</style>
+</head>
+<body>
+  <div id="topband"></div>
+  <div id="botband"></div>
+  <div id="social">
+    <div class="row"><div class="icon">𝕏</div><div class="handle">@fullportmatt</div></div>
+    <div class="row"><div class="icon yt">▶</div><div class="handle">youtube.com/@fullportmatt_zh</div></div>
+  </div>
+  <div id="ticker"></div>
+  <div class="scan" id="scantop"></div>
+  <div class="scan" id="scanbot"></div>
+  <div class="shine"></div>
+<script>
+const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
+const DEXTOKENS=[];
+const state={};
+function fmtPrice(p){
+  if(p>=1000) return "$"+Math.round(p).toLocaleString("en-US");
+  if(p>=1) return "$"+p.toFixed(2);
+  return "$"+p.toPrecision(3);
+}
+function render(){
+  const t=document.getElementById("ticker");
+  t.innerHTML="";
+  const keys=[...COINS.map(c=>c[1]),...DEXTOKENS.map(x=>x[1])];
+  for(const k of keys){
+    const d=state[k];
+    const seg=document.createElement("div");seg.className="seg";
+    const inner=document.createElement("div");
+    if(d){
+      const up=d.chg>=0;
+      inner.innerHTML=`<span class="sym">${k}</span><span class="price">${fmtPrice(d.price)}</span><span class="chg ${up?"up":"down"}"><span class="arrow">${up?"▲":"▼"}</span>${up?"+":""}${d.chg.toFixed(2)}%</span>`;
+    } else {
+      inner.innerHTML=`<span class="sym">${k}</span><span class="chg" style="color:#5a6a72">--</span>`;
+    }
+    seg.appendChild(inner); t.appendChild(seg);
+  }
+}
+async function poll(){
+  try{
+    const ids=COINS.map(c=>c[0]).join(",");
+    const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+    const j=await r.json();
+    for(const [id,sym] of COINS){
+      if(j[id]) state[sym]={price:j[id].usd, chg:j[id].usd_24h_change||0};
+    }
+  }catch(e){}
+  for(const [addr,sym] of DEXTOKENS){
+    try{
+      const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`);
+      const j=await r.json();
+      const p=(j.pairs||[]).sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+      if(p) state[sym]={price:parseFloat(p.priceUsd), chg:p.priceChange?.h24??0};
+    }catch(e){}
+  }
+  render();
+}
+render(); poll(); setInterval(poll,30000);
+</script>
+</body>
+</html>

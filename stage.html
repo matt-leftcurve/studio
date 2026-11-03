@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="robots" content="noindex" />
+<title>FULLPORTMATT stage</title>
+<style>
+	html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+	#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+	.panel { position: absolute; overflow: hidden; background: transparent; }
+	.panel iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+	.panel.empty { background: #0e1a2b; }
+	#overlay { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; pointer-events: none; z-index: 10; background: transparent; }
+	#logo { position: absolute; left: 22px; top: 6px; height: 150px; z-index: 11; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+// FULLPORTMATT stage page (prototype). One definition of each guest layout.
+// OBS loads it as a single 1920x1080 browser source (&mode=obs): guests are pulled in as full-quality
+// scene views by stream ID (same kind of connection as today's per-guest OBS panels), Matt's camera
+// panel is left transparent so OBS's native camera layer shows through underneath.
+// Params: layout=solo|sbs|trio, g1=<guest stream id>, g2=<id>, h1/h2=<@handles>, room=fpmshow,
+//         mode=obs (default) | view (renders Matt's panel from the host feed too, scaled to the window),
+//         audio=1 to let guest audio play (default muted; production audio still comes via OBS sources).
+(function () {
+	var q = new URLSearchParams(location.search);
+	var ROOM = q.get("room") || "fpmshow";
+	var LAYOUT = q.get("layout") || "trio";
+	var MODE = q.get("mode") || "obs";
+	var AUDIO = q.get("audio") === "1";
+	var HOST = q.get("host") || "FPMHOST";
+	var LAYOUTS = {
+		solo: { overlay: "stage/retro-solo.html", panels: [["host", 0, 0, 1920, 1080]] },
+		sbs: { overlay: "stage/retro-sbs.html", panels: [["host", 0, 165, 950, 810], ["g1", 970, 165, 950, 810]] },
+		trio: { overlay: "stage/retro-trio.html", panels: [["host", 0, 165, 630, 810], ["g1", 645, 165, 630, 810], ["g2", 1290, 165, 630, 810]] }
+	};
+	var L = LAYOUTS[LAYOUT] || LAYOUTS.trio;
+	var stage = document.getElementById("stage");
+
+	function viewUrl(id) {
+		var u = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(ROOM) + "&cover&label=Full_Port_Matt&opusbitrate=128";
+		if (!AUDIO) {
+			u += "&noaudio";
+		}
+		return u;
+	}
+
+	L.panels.forEach(function (p) {
+		var role = p[0];
+		var div = document.createElement("div");
+		div.className = "panel";
+		div.id = "panel-" + role;
+		div.style.left = p[1] + "px";
+		div.style.top = p[2] + "px";
+		div.style.width = p[3] + "px";
+		div.style.height = p[4] + "px";
+		var id = role === "host" ? (MODE === "obs" ? "" : HOST) : q.get(role) || "";
+		if (id) {
+			var f = document.createElement("iframe");
+			f.allow = "autoplay";
+			f.src = viewUrl(id);
+			div.appendChild(f);
+		} else if (role !== "host") {
+			div.className += " empty";
+		}
+		stage.appendChild(div);
+	});
+
+	var ov = document.createElement("iframe");
+	ov.id = "overlay";
+	var oq = new URLSearchParams();
+	if (q.get("h1")) oq.set("h1", q.get("h1"));
+	if (q.get("h2")) oq.set("h2", q.get("h2"));
+	ov.src = L.overlay + (oq.toString() ? "?" + oq.toString() : "");
+	stage.appendChild(ov);
+	var logo = document.createElement("img");
+	logo.id = "logo";
+	logo.src = "stage/laoshi_logo.png";
+	stage.appendChild(logo);
+
+	function fit() {
+		if (MODE === "obs") {
+			return;
+		}
+		var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+		stage.style.transform = "scale(" + s + ")";
+	}
+	window.addEventListener("resize", fit);
+	fit();
+})();
+</script>
+</body>
+</html>

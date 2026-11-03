@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0;width:1920px;height:1080px;overflow:hidden;background:rgba(0,0,0,0);}
+  /* top band: 马特老师 logo strip sliced from bg (y 0..165 @1920 scale) */
+  #topband{position:absolute;top:0;left:0;width:1920px;height:165px;
+    background-image:url("bg-laoshi.png");background-size:1920px 1080px;background-position:0 0;
+    border-bottom:3px solid rgba(201,161,95,0.8);box-shadow:0 4px 18px rgba(0,0,0,0.55);}
+  /* bottom band: ticker strip sliced from bg (y 975..1080) */
+  #botband{position:absolute;bottom:0;left:0;width:1920px;height:105px;
+    background-image:url("bg-laoshi.png");background-size:1920px 1080px;background-position:0 -975px;
+    border-top:3px solid rgba(201,161,95,0.8);box-shadow:0 -4px 18px rgba(0,0,0,0.55);}
+  /* center gutter between the two panels */
+  .gut{position:absolute;top:165px;width:15px;height:810px;
+    background:linear-gradient(180deg,#0d1a20,#101c16 50%,#0d1a20);
+    border-left:2px solid rgba(201,161,95,0.55);border-right:2px solid rgba(201,161,95,0.55);
+    box-sizing:border-box;}
+  #gut1{left:630px;} #gut2{left:1275px;}
+  /* thin gold frames over each panel edge (interior transparent) */
+  .frame{position:absolute;top:165px;width:630px;height:810px;box-sizing:border-box;
+    border:2px solid rgba(201,161,95,0.45);pointer-events:none;
+    box-shadow:inset 0 0 28px rgba(0,0,0,0.4);}
+  #frame1{left:0;} #frame2{left:645px;} #frame3{left:1290px;}
+  /* social handles (same as solo overlay) */
+  #social{position:absolute;right:70px;top:32px;text-align:right;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  #social .row{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:9px;}
+  #social .icon{font-weight:800;font-size:22px;color:#0b1a20;background:#7fd4c1;border-radius:5px;
+    width:30px;height:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(127,212,193,0.35);}
+  #social .icon.yt{background:#ff6b5e;color:#0b1a20;font-size:13px;letter-spacing:0;}
+  #social .handle{color:#9fe0d0;font-size:22px;font-weight:700;letter-spacing:1px;text-shadow:0 0 8px rgba(127,212,193,0.4);}
+  /* live ticker over the bottom band (same geometry as solo overlay) */
+  #ticker{position:absolute;left:250px;bottom:50px;width:1360px;height:58px;background:#0a161e;
+    display:flex;align-items:stretch;overflow:hidden;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  .seg{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;
+    border-left:2px solid #3a4a44;transform:skewX(-14deg);margin-left:4px;background:#0d1a14;
+    box-shadow:inset 0 0 0 1px rgba(210,190,140,0.25);}
+  .seg > div{transform:skewX(14deg);display:flex;align-items:center;gap:8px;}
+  .sym{color:#e8e3d5;font-weight:700;font-size:19px;letter-spacing:1px;}
+  .price{color:#d8c99a;font-weight:600;font-size:18px;}
+  .chg{font-weight:700;font-size:18px;}
+  .up{color:#57d98a;} .down{color:#ff6b5e;}
+  .arrow{font-size:15px;}
+  /* effects restricted to the bands so cameras stay clean */
+  .scan{position:absolute;left:0;width:100%;pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,0.14) 0px, rgba(0,0,0,0.14) 1px, transparent 2px, transparent 4px);
+    mix-blend-mode:multiply;}
+  #scantop{top:0;height:165px;} #scanbot{bottom:0;height:105px;}
+  .shine{position:absolute;top:0;width:220px;height:165px;pointer-events:none;
+    background:linear-gradient(105deg, transparent, rgba(160,220,255,0.07) 45%, rgba(160,220,255,0.1) 50%, rgba(160,220,255,0.07) 55%, transparent);
+    animation:shine 8s linear infinite;}
+  @keyframes shine{from{left:-240px;}to{left:1920px;}}
+
+  /* panel name tags (X-badge style, same family as #social) */
+  .nametag{position:absolute;display:flex;align-items:center;gap:10px;
+    background:rgba(10,22,30,0.88);border:2px solid rgba(201,161,95,0.55);
+    border-radius:6px;padding:7px 16px 7px 10px;
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    box-shadow:0 0 14px rgba(0,0,0,0.5);}
+  .nametag .icon{font-weight:800;font-size:19px;color:#0b1a20;background:#7fd4c1;
+    border-radius:5px;width:26px;height:26px;display:flex;align-items:center;
+    justify-content:center;box-shadow:0 0 10px rgba(127,212,193,0.35);}
+  .nametag .handle{color:#9fe0d0;font-size:21px;font-weight:700;letter-spacing:1px;
+    text-shadow:0 0 8px rgba(127,212,193,0.4);}
+  #tag1{left:22px;top:913px;} #tag2{left:667px;top:913px;} #tag3{left:1312px;top:913px;}
+</style>
+</head>
+<body>
+  <div id="topband"></div>
+  <div id="botband"></div>
+  <div class="gut" id="gut1"></div>
+  <div class="gut" id="gut2"></div>
+  <div class="frame" id="frame1"></div>
+  <div class="frame" id="frame2"></div>
+  <div class="frame" id="frame3"></div>
+  <div id="social">
+    <div class="row"><div class="icon">𝕏</div><div class="handle">@fullportmatt</div></div>
+    <div class="row"><div class="icon yt">▶</div><div class="handle">youtube.com/@fullportmatt_zh</div></div>
+  </div>
+  <div class="nametag" id="tag1"><div class="icon">&#120143;</div><div class="handle" id="handle1"></div></div>
+  <div class="nametag" id="tag2"><div class="icon">&#120143;</div><div class="handle" id="handle2"></div></div>
+  <div class="nametag" id="tag3"><div class="icon">&#120143;</div><div class="handle" id="handle3"></div></div>
+  <div id="ticker"></div>
+  <div class="scan" id="scantop"></div>
+  <div class="scan" id="scanbot"></div>
+  <div class="shine"></div>
+<script>
+
+// panel name tags — edit per guest episode
+const HOST_HANDLE="@FullPortMatt";
+const __q=new URLSearchParams(location.search);const GUEST_HANDLE=__q.get("h1")||"";
+const GUEST2_HANDLE=__q.get("h2")||"";
+document.getElementById("handle1").textContent=HOST_HANDLE;
+document.getElementById("handle2").textContent=GUEST_HANDLE;
+document.getElementById("handle3").textContent=GUEST2_HANDLE;
+const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
+const DEXTOKENS=[];
+const state={};
+function fmtPrice(p){
+  if(p>=1000) return "$"+Math.round(p).toLocaleString("en-US");
+  if(p>=1) return "$"+p.toFixed(2);
+  return "$"+p.toPrecision(3);
+}
+function render(){
+  const t=document.getElementById("ticker");
+  t.innerHTML="";
+  const keys=[...COINS.map(c=>c[1]),...DEXTOKENS.map(x=>x[1])];
+  for(const k of keys){
+    const d=state[k];
+    const seg=document.createElement("div");seg.className="seg";
+    const inner=document.createElement("div");
+    if(d){
+      const up=d.chg>=0;
+      inner.innerHTML=`<span class="sym">${k}</span><span class="price">${fmtPrice(d.price)}</span><span class="chg ${up?"up":"down"}"><span class="arrow">${up?"▲":"▼"}</span>${up?"+":""}${d.chg.toFixed(2)}%</span>`;
+    } else {
+      inner.innerHTML=`<span class="sym">${k}</span><span class="chg" style="color:#5a6a72">--</span>`;
+    }
+    seg.appendChild(inner); t.appendChild(seg);
+  }
+}
+async function poll(){
+  try{
+    const ids=COINS.map(c=>c[0]).join(",");
+    const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+    const j=await r.json();
+    for(const [id,sym] of COINS){
+      if(j[id]) state[sym]={price:j[id].usd, chg:j[id].usd_24h_change||0};
+    }
+  }catch(e){}
+  for(const [addr,sym] of DEXTOKENS){
+    try{
+      const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`);
+      const j=await r.json();
+      const p=(j.pairs||[]).sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+      if(p) state[sym]={price:parseFloat(p.priceUsd), chg:p.priceChange?.h24??0};
+    }catch(e){}
+  }
+  render();
+}
+render(); poll(); setInterval(poll,30000);
+</script>
+</body>
+</html>
