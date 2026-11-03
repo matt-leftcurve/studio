@@ -60,7 +60,7 @@
 			var sid = r && r.streamID ? String(r.streamID) : "";
 			if (sid.slice(-2) !== ":s") continue;
 			var st = r.streamSrc || (r.videoElement && r.videoElement.srcObject);
-			if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live"; })) {
+			if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) {
 				return sid.slice(0, -2);
 			}
 		}

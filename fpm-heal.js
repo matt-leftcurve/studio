@@ -90,6 +90,10 @@
 			if (sid === session.streamID) {
 				return;
 			}
+			// Screen shares ("<id>:s") start and stop on purpose; never resurrect them.
+			if (sid.slice(-2) === ":s") {
+				return;
+			}
 			if (known[sid] && known[sid].lostAt) {
 				note("recovered " + sid + " after " + Math.round((now - known[sid].lostAt) / 1000) + "s");
 			}
@@ -135,7 +139,7 @@
 		if (!badge.isConnected) document.body.appendChild(badge);
 		var ids = Object.keys(known);
 		var lost = ids.filter(function (k) { return known[k].lostAt; });
-		badge.textContent = "heal v3 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
+		badge.textContent = "heal v4 · watching " + ids.length + (lost.length ? " · LOST " + lost.join(",") : "") + (log.length ? "\n" + log.slice(-2).join("\n") : "");
 	}
 	setInterval(function () { tick(); paint(); }, 1000);
 	window.fpmHeal = {

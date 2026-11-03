@@ -91,7 +91,7 @@
 				if (!rp) continue;
 				for (var U in rp) {
 					var st = rp[U] && (rp[U].streamSrc || (rp[U].videoElement && rp[U].videoElement.srcObject));
-					if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live"; })) {
+					if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) {
 						return roles[i];
 					}
 				}
