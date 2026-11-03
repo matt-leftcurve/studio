@@ -53,8 +53,21 @@
 	var SHARE_SCENE = params.get("sharescene") || "Stage - Share";
 	var sharing = ""; // guest id currently sharing
 	var beforeShare = "";
+	var shareDbg = document.createElement("span");
+	shareDbg.style.cssText = "color:#9ab;font:11px ui-monospace,Menlo,monospace;padding:0 6px;align-self:center";
 	function liveShareId() {
 		if (!window.session || !session.rpcs) return "";
+		var dbg = [];
+		for (var U0 in session.rpcs) {
+			var r0 = session.rpcs[U0];
+			var sid0 = r0 && r0.streamID ? String(r0.streamID) : "";
+			if (sid0.slice(-2) !== ":s") continue;
+			var st0 = r0.streamSrc || (r0.videoElement && r0.videoElement.srcObject);
+			var vt = st0 && st0.getVideoTracks ? st0.getVideoTracks() : [];
+			dbg.push(sid0 + " pc=" + r0.connectionState + " v=" + vt.map(function (t) { return t.readyState + (t.muted ? "/muted" : "/on"); }).join("+"));
+		}
+		shareDbg.textContent = "share: " + (dbg.length ? dbg.join(" | ") : "none") + " · before=" + (beforeShare || "-");
+		if (!shareDbg.isConnected) bar.appendChild(shareDbg);
 		for (var U in session.rpcs) {
 			var r = session.rpcs[U];
 			var sid = r && r.streamID ? String(r.streamID) : "";
