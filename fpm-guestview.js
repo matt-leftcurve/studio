@@ -133,6 +133,19 @@
 	var t = setInterval(function () {
 		if (hook()) clearInterval(t);
 	}, 500);
+	// Announce our own screen-share state to the room (host page switches OBS on this, instantly both ways;
+	// VDO keeps the ":s" stream connected and "live" after Stop, so the video alone can't tell).
+	var lastShare = null, lastSent = 0;
+	setInterval(function () {
+		if (!window.session || typeof session.sendGenericData !== "function") return;
+		var on = !!session.screenShareState;
+		var now = Date.now();
+		if (on !== lastShare || now - lastSent > 3000) {
+			lastShare = on;
+			lastSent = now;
+			try { session.sendGenericData({ fpmShare: { id: me, on: on } }); } catch (e) {}
+		}
+	}, 300);
 	setInterval(render, 2000); // re-bind streams that (re)connected
 	window.fpmGuestView = { state: function () { return state; }, render: render };
 })();

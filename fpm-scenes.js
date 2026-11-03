@@ -55,6 +55,23 @@
 	var beforeShare = "";
 	var shareDbg = document.createElement("span");
 	shareDbg.style.cssText = "color:#9ab;font:11px ui-monospace,Menlo,monospace;padding:0 6px;align-self:center";
+	// Guests announce {fpmShare:{id,on}} (fpm-guestview.js) the moment they click Share / Stop.
+	var shareAnnounce = {}; // id -> {on, ts}
+	(function hookShare() {
+		if (!window.session || typeof session.gotGenericData !== "function") return setTimeout(hookShare, 500);
+		if (session.__fpmShareHook) return;
+		session.__fpmShareHook = true;
+		var orig = session.gotGenericData;
+		session.gotGenericData = function (data) {
+			try {
+				if (data && data.fpmShare && data.fpmShare.id) {
+					var prevA = shareAnnounce[data.fpmShare.id];
+					shareAnnounce[data.fpmShare.id] = { on: !!data.fpmShare.on, ts: Date.now(), since: prevA && prevA.on && data.fpmShare.on ? prevA.since : 0 };
+				}
+			} catch (e) {}
+			return orig.apply(this, arguments);
+		};
+	})();
 	function liveShareId() {
 		if (!window.session || !session.rpcs) return "";
 		var dbg = [];
@@ -68,10 +85,25 @@
 		}
 		shareDbg.textContent = "share: " + (dbg.length ? dbg.join(" | ") : "none") + " · before=" + (beforeShare || "-");
 		if (!shareDbg.isConnected) bar.appendChild(shareDbg);
+		var ann = Object.keys(shareAnnounce).filter(function (id) { return Date.now() - shareAnnounce[id].ts < 10000; });
+		shareDbg.textContent += " · ann=" + (ann.length ? ann.map(function (id) { return id + ":" + (shareAnnounce[id].on ? "on" : "off"); }).join(",") : "-");
+		for (var a = 0; a < ann.length; a++) {
+			var an = shareAnnounce[ann[a]];
+			if (!an.on) continue;
+			if (!an.since) an.since = Date.now();
+			// Go to the Share scene once the share video has reached us (so the panel isn't black on air),
+			// or after 5 s regardless.
+			var arrived = false;
+			for (var U1 in session.rpcs) {
+				if (session.rpcs[U1] && session.rpcs[U1].streamID === ann[a] + ":s") arrived = true;
+			}
+			if (arrived || Date.now() - an.since > 5000) return ann[a];
+		}
 		for (var U in session.rpcs) {
 			var r = session.rpcs[U];
 			var sid = r && r.streamID ? String(r.streamID) : "";
 			if (sid.slice(-2) !== ":s") continue;
+			if (shareAnnounce[sid.slice(0, -2)] && Date.now() - shareAnnounce[sid.slice(0, -2)].ts < 10000) continue; // guest says off
 			var st = r.streamSrc || (r.videoElement && r.videoElement.srcObject);
 			if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) {
 				return sid.slice(0, -2);
@@ -96,7 +128,7 @@
 			beforeShare = "";
 		}
 		broadcast();
-	}, 1000);
+	}, 300);
 
 	function mount() {
 		if (document.body && !bar.isConnected) {
