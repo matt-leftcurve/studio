@@ -59,6 +59,11 @@
 
 	function streamFor(sid) {
 		if (!sid) return null;
+		if (sid === me + ":s") {
+			// our OWN screen share is local, not an incoming stream
+			var se = session.screenShareElement;
+			return (se && se.srcObject) || session.screenStream || null;
+		}
 		if (sid === me) {
 			return session.streamSrc || (session.videoElement && session.videoElement.srcObject) || null; // own camera, local
 		}
