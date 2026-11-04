@@ -66,6 +66,11 @@
 		}
 		// &vcodec=h264 (guest/host views only): ask senders for H.264, which Macs/most PCs encode in HARDWARE; VP8 is
 		// always software. OBS's stage view never sets this (OBS's browser can't play H.264), so OBS stays VP8.
+		// &ice=<srflx|relay> (TEST ONLY): VDO icefilter = keep only that candidate type, i.e. never use the home LAN;
+		// simulates guests coming in over the internet when testing with devices in the same house.
+		if (q.get("ice")) {
+			u += "&icefilter=" + encodeURIComponent(q.get("ice"));
+		}
 		if (q.get("vcodec")) {
 			u += "&codec=" + encodeURIComponent(q.get("vcodec"));
 		}
