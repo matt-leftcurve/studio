@@ -61,6 +61,11 @@
 		if (q.get("maxh")) {
 			u += "&viewheight=" + encodeURIComponent(q.get("maxh"));
 		}
+		// &vcodec=h264 (guest/host views only): ask senders for H.264, which Macs/most PCs encode in HARDWARE; VP8 is
+		// always software. OBS's stage view never sets this (OBS's browser can't play H.264), so OBS stays VP8.
+		if (q.get("vcodec")) {
+			u += "&codec=" + encodeURIComponent(q.get("vcodec"));
+		}
 		return u;
 	}
 
