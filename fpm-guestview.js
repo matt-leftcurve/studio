@@ -115,7 +115,7 @@
 		hostStage.style.display = "block";
 		var q = new URLSearchParams();
 		["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
-		q.set("maxh", params.get("viewmaxh") || "540");
+		q.set("maxh", params.get("viewmaxh") || "1080"); // 1080p from each sender: H.264 hardware encodes are cheap (540 was the VP8-era cap)
 		q.set("vcodec", params.get("viewcodec") || "h264"); // hardware-encoded copies for people; OBS stays VP8 // fixed 540p from each sender: cheap encodes, OBS unaffected
 		q.set("dpr", params.get("viewdpr") || "1"); // 2 made guest laptops CPU-bound (software encodes, +delay), 2026-11-04
 		if (!isHost) {
