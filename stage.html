@@ -71,6 +71,11 @@
 		if (q.get("ice")) {
 			u += "&icefilter=" + encodeURIComponent(q.get("ice"));
 		}
+		// &vbr=N kbps (guest/host views): cap what each sender spends on THIS viewer, so a guest on weak upload keeps
+		// most of it for the OBS stream copy. OBS's view never sets this.
+		if (q.get("vbr")) {
+			u += "&videobitrate=" + encodeURIComponent(q.get("vbr"));
+		}
 		if (q.get("vcodec")) {
 			u += "&codec=" + encodeURIComponent(q.get("vcodec"));
 		}

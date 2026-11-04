@@ -115,7 +115,8 @@
 		hostStage.style.display = "block";
 		var q = new URLSearchParams();
 		["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
-		q.set("maxh", params.get("viewmaxh") || "1080"); // 1080p from each sender: H.264 hardware encodes are cheap (540 was the VP8-era cap)
+		q.set("maxh", params.get("viewmaxh") || "720"); // people's views: 720p ...
+		q.set("vbr", params.get("viewbitrate") || "1500"); // ... at <=1.5 Mbps, so a weak guest uplink favours the OBS copy
 		q.set("vcodec", params.get("viewcodec") || "h264");
 		if (params.get("icefilter")) q.set("ice", params.get("icefilter")); // test mode: no LAN paths (see stage.html) // hardware-encoded copies for people; OBS stays VP8 // fixed 540p from each sender: cheap encodes, OBS unaffected
 		q.set("dpr", params.get("viewdpr") || "1"); // 2 made guest laptops CPU-bound (software encodes, +delay), 2026-11-04

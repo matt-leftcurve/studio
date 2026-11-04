@@ -19,7 +19,7 @@
 		return;
 	}
 
-	var BITRATE = parseInt(params.get("autodrivebitrate") || "6000", 10) || 6000;
+	var BITRATE = parseInt(params.get("autodrivebitrate") || "3000", 10) || 3000; // was 6000: halved 2026-11-04 so the backup upload leaves room on weak guest uplinks (H.264 since recordcodec)
 	var OBS_PASS = params.get("obspass") || "";
 	var OBS_URL = params.get("obsurl") || "ws://127.0.0.1:4455";
 	var GRACE_MS = 15000; // after load: listen for progress from already-running recordings first
