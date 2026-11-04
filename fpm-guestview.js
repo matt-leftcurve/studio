@@ -123,7 +123,8 @@
 		if (hk !== hostStageKey) {
 			// (re)load only when the seats change; layout changes go by postMessage so nobody reconnects
 			hostStageKey = hk;
-			hostStage.src = "./stage.html?" + hk + "&layout=" + name; // no &audio: audio comes from the room connections
+			var bm = document.querySelector('meta[name="fpm-build"]');
+			hostStage.src = "./stage.html?" + hk + "&layout=" + name + "&b=" + encodeURIComponent(bm ? bm.content : Date.now()); // &b: never a stale cached stage page // no &audio: audio comes from the room connections
 		}
 		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name, sharer: state.sharer || "" } }, "*"); } catch (e) {}
 		overlay.style.display = "none"; // the stage page draws the overlay
