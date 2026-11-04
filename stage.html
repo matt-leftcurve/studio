@@ -38,7 +38,11 @@
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
 		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
 		// share: screen large, Matt top-right, the SHARING guest's camera bottom-right ("sharer" is g1 or g2)
-		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } }
+		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } },
+		// Guest/host views only (OBS never shows stage.html in these scenes): intro screen with everyone in a tile
+		// strip, and the solo scene with the guests in small tiles so they still see themselves/each other.
+		intro: { overlay: "stage/intro.html", under: true, panels: { host: [340, 775, 400, 225], g1: [760, 775, 400, 225], g2: [1180, 775, 400, 225] } },
+		solo_pip: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080], g1: [1530, 200, 360, 203], g2: [1530, 418, 360, 203] }, tiles: ["g1", "g2"] }
 	};
 	var stage = document.getElementById("stage");
 
@@ -134,6 +138,10 @@
 				return;
 			}
 			div.style.display = "block";
+			var isTile = L.under || (L.tiles && L.tiles.indexOf(role) !== -1);
+			div.style.zIndex = isTile ? "20" : "";
+			div.style.borderRadius = isTile ? "10px" : "";
+			div.style.boxShadow = isTile ? "0 0 0 3px #7fd4c1, 0 8px 24px rgba(0,0,0,.6)" : "";
 			div.style.left = r[0] + "px";
 			div.style.top = r[1] + "px";
 			div.style.width = r[2] + "px";
@@ -158,6 +166,7 @@
 		}
 		Object.keys(overlays).forEach(function (n) {
 			overlays[n].style.display = n === name ? "block" : "none";
+			overlays[n].style.zIndex = LAYOUTS[n].under ? "0" : "";
 		});
 		document.title = "FULLPORTMATT stage · " + name;
 	}

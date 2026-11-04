@@ -21,7 +21,9 @@
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
 		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
 		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } },
-		show: { overlay: "", panels: { show: [0, 0, 1920, 1080] } }
+		show: { overlay: "", panels: { show: [0, 0, 1920, 1080] } },
+		intro: { overlay: "", panels: { host: [340, 775, 400, 225], g1: [760, 775, 400, 225], g2: [1180, 775, 400, 225] } },
+		solo_pip: { overlay: "", panels: { host: [0, 0, 1920, 1080], g1: [1530, 200, 360, 203], g2: [1530, 418, 360, 203] } }
 	};
 	var state = null;
 	var root = null, stage = null, overlay = null, overlayKey = "";
@@ -98,7 +100,7 @@
 		build();
 		if (isHost) {
 			root.style.display = name === "show" ? "none" : "";
-			if (name === "show") return;
+			if (name === "show") { music(""); return; }
 		}
 		if (name === "show") {
 			hostStage.style.display = "none";
@@ -144,7 +146,13 @@
 			v.style.transform = local[role] === me ? "scaleX(-1)" : "";
 			v.style.objectFit = role === "share" ? "contain" : "cover";
 			v.style.background = role === "share" ? "#000" : "#0e1a2b";
+			// small tiles (intro strip, solo PiP) sit ABOVE the stage page, whose intro background is opaque
+			var small = r[2] < 800;
+			v.style.zIndex = small ? "30" : "";
+			v.style.borderRadius = small ? "10px" : "";
+			v.style.boxShadow = small ? "0 0 0 3px #7fd4c1, 0 8px 24px rgba(0,0,0,.6)" : "";
 		});
+		music(name === "intro" ? state.music : "");
 		return;
 
 		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG", share: state.sharer ? state.sharer + ":s" : "", sharer: state.sharer || "" };
@@ -181,6 +189,34 @@
 			overlay.style.display = key ? "block" : "none";
 			if (key) overlay.src = key;
 		}
+	}
+
+	// Intro music for the people IN the room (host + guests), played locally and quietly. The audience gets the same
+	// track from OBS's "Intro Music" input. Volume via the YouTube iframe API (postMessage, enablejsapi=1).
+	var MUSIC_VOL = parseInt(params.get("musicvol") || "15", 10);
+	var musicFrame = null, musicNow = "", musicBtn = null;
+	function ytCmd(func, args) {
+		try { musicFrame.contentWindow.postMessage(JSON.stringify({ event: "command", func: func, args: args || [] }), "*"); } catch (e) {}
+	}
+	function music(id) {
+		if (id === musicNow) return;
+		musicNow = id;
+		if (musicFrame) { musicFrame.remove(); musicFrame = null; }
+		if (musicBtn) { musicBtn.remove(); musicBtn = null; }
+		if (!id) return;
+		musicFrame = el("iframe", "position:fixed;left:-400px;top:0;width:320px;height:180px;border:0;opacity:0;pointer-events:none");
+		musicFrame.allow = "autoplay";
+		musicFrame.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&autoplay=1&loop=1&playlist=" + id + "&controls=0&origin=" + encodeURIComponent(location.origin);
+		musicFrame.onload = function () {
+			[300, 1200, 3000].forEach(function (t) { setTimeout(function () { ytCmd("setVolume", [MUSIC_VOL]); ytCmd("playVideo"); }, t); });
+		};
+		document.body.appendChild(musicFrame);
+		// autoplay with sound can be blocked: offer a one-tap fallback
+		musicBtn = el("button", "position:fixed;right:14px;top:14px;z-index:99999;border:0;border-radius:8px;padding:8px 12px;background:#1b2230;color:#d7dbe3;font:600 13px system-ui;cursor:pointer");
+		musicBtn.textContent = "♪ music not playing? tap";
+		musicBtn.onclick = function () { ytCmd("setVolume", [MUSIC_VOL]); ytCmd("playVideo"); musicBtn.remove(); musicBtn = null; };
+		document.body.appendChild(musicBtn);
+		setTimeout(function () { if (musicBtn) { musicBtn.remove(); musicBtn = null; } }, 20000);
 	}
 
 	function hook() {

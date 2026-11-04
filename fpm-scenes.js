@@ -33,7 +33,9 @@
 	var stageInfo = { g1: "", g2: "", h1: "", h2: "" };
 	function layoutFor(name) {
 		var n = String(name || "").toLowerCase();
-		if (n.indexOf("stage") === -1) return ""; // non-stage scenes: guests see the Show program feed
+		if (n.indexOf("starting soon") !== -1 || n.indexOf("intro") !== -1) return "intro";
+		if (n === "solo") return "solo_pip"; // the OBS Solo scene: guests see Matt full + themselves in small tiles
+		if (n.indexOf("stage") === -1) return ""; // other non-stage scenes: guests see Matt solo
 		if (n.indexOf("share") !== -1) return "share";
 		if (n.indexOf("trio") !== -1) return "trio";
 		if (n.indexOf("sbs") !== -1) return "sbs";
@@ -44,6 +46,7 @@
 		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
 		try {
 			var st = { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2, sharer: typeof sharing === "string" ? sharing : "" };
+			st.music = musicId;
 			session.sendGenericData({ fpmStage: st });
 		} catch (e) {}
 		try {
@@ -134,10 +137,51 @@
 		broadcast();
 	}, 300);
 
+	// INTRO SCENE AUDIO (2026-11-04): the audience hears only the intro music. Matt's mic (OBS "Mic/Aux", a global
+	// device = every scene) is muted while an intro scene is live and unmuted when it ends. Guests never reach the
+	// stream outside stage scenes (their only stream path is the "Stage" input). Matt + guests keep talking via the room.
+	var MIC = params.get("micinput") || "Mic/Aux";
+	var MUSIC_INPUT = params.get("musicinput") || "Intro Music";
+	var micMutedByUs = false;
+	function applyIntroMute() {
+		var intro = layoutFor(current) === "intro";
+		if (intro && !micMutedByUs) {
+			micMutedByUs = true;
+			send("SetInputMute", { inputName: MIC, inputMuted: true });
+		} else if (!intro && micMutedByUs) {
+			micMutedByUs = false;
+			send("SetInputMute", { inputName: MIC, inputMuted: false });
+		}
+	}
+	// Intro music: paste any YouTube link; sets OBS "Intro Music" (audience) and tells everyone's page to play it quietly.
+	var musicId = "";
+	function ytId(u) {
+		var m = String(u || "").match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
+		return m ? m[1] : /^[A-Za-z0-9_-]{11}$/.test(String(u || "").trim()) ? String(u).trim() : "";
+	}
+	function musicUrl(id) {
+		return "https://www.youtube.com/embed/" + id + "?autoplay=1&loop=1&playlist=" + id + "&controls=0&rel=0";
+	}
+	var musicBox = document.createElement("input");
+	musicBox.type = "text";
+	musicBox.placeholder = "♪ intro music: paste YouTube link";
+	musicBox.style.cssText = "width:230px;border:0;border-radius:8px;padding:8px 10px;font:inherit;font-weight:500;background:#1b2230;color:#d7dbe3";
+	musicBox.addEventListener("keydown", function (e) {
+		if (e.key !== "Enter") return;
+		var id = ytId(musicBox.value);
+		if (!id) { musicBox.style.outline = "2px solid #e5484d"; return; }
+		musicBox.style.outline = "";
+		musicId = id;
+		send("SetInputSettings", { inputName: MUSIC_INPUT, inputSettings: { url: musicUrl(id) } });
+		musicBox.value = "♪ " + id;
+		broadcast();
+	});
+
 	function mount() {
 		if (document.body && !bar.isConnected) {
 			document.body.appendChild(bar);
 		}
+		if (!musicBox.isConnected) bar.appendChild(musicBox);
 	}
 
 	function render() {
@@ -209,9 +253,13 @@
 				status.style.display = "none";
 				send("GetSceneList");
 				send("GetInputSettings", { inputName: STAGE_INPUT });
+				send("GetInputSettings", { inputName: MUSIC_INPUT });
 			} else if (d.op === 7) {
 				var r = d.d.responseData || {};
-				if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url) {
+				if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url && /youtube/.test(r.inputSettings.url)) {
+					musicId = ytId(r.inputSettings.url) || musicId;
+					if (musicId) musicBox.value = "♪ " + musicId;
+				} else if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url) {
 					try {
 						var sp = new URL(r.inputSettings.url).searchParams;
 						stageInfo = { g1: sp.get("g1") || "", g2: sp.get("g2") || "", h1: sp.get("h1") || "", h2: sp.get("h2") || "" };
@@ -221,6 +269,7 @@
 				if (d.d.requestType === "GetSceneList" && r.scenes) {
 					scenes = r.scenes.slice().sort(function (a, b) { return b.sceneIndex - a.sceneIndex; }).map(function (s) { return s.sceneName; });
 					current = r.currentProgramSceneName || current;
+					applyIntroMute();
 					render();
 					broadcast();
 				}
@@ -228,6 +277,7 @@
 				var ev = d.d.eventType;
 				if (ev === "CurrentProgramSceneChanged") {
 					current = d.d.eventData.sceneName;
+					applyIntroMute();
 					render();
 					broadcast();
 				} else if (ev === "InputSettingsChanged" && d.d.eventData.inputName === STAGE_INPUT) {
