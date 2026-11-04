@@ -51,6 +51,10 @@
 		if (!AUDIO) {
 			u += "&noaudio";
 		}
+		// &dpr=N (guest/host views): request N x the panel's pixel size so small tiles stay sharp on screen
+		if (q.get("dpr")) {
+			u += "&dpr=" + encodeURIComponent(q.get("dpr"));
+		}
 		return u;
 	}
 
