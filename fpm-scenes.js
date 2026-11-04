@@ -10,7 +10,9 @@
 		return;
 	}
 	var URL_ = params.get("obsurl") || "ws://127.0.0.1:4455";
-	var ONLY = params.get("scenes") ? params.get("scenes").split(",").map(function (s) { return s.trim(); }).filter(Boolean) : null;
+	// Scene buttons: Matt's show set by default (2026-11-04); &scenes=A,B,... overrides, &scenes=all shows every scene.
+	var DEFAULT_SCENES = ["Starting Soon", "Solo", "Stage - SBS", "Stage - Trio", "Stage - Share"];
+	var ONLY = params.get("scenes") === "all" ? null : params.get("scenes") ? params.get("scenes").split(",").map(function (s) { return s.trim(); }).filter(Boolean) : DEFAULT_SCENES;
 
 	var bar = document.createElement("div");
 	bar.className = "fpm-scenes";
@@ -31,6 +33,7 @@
 	// Stage relay: guests' pages (fpm-guestview.js) draw the same layout as OBS's stage page.
 	var STAGE_INPUT = params.get("stageinput") || "Stage";
 	var stageInfo = { g1: "", g2: "", h1: "", h2: "" };
+	var stageUrl = ""; // full current Stage input URL (kept so seat/handle edits preserve audio/vcodec/etc.)
 	function layoutFor(name) {
 		var n = String(name || "").toLowerCase();
 		if (n.indexOf("starting soon") !== -1 || n.indexOf("intro") !== -1) return "intro";
@@ -186,6 +189,75 @@
 		if (params.has("musicbox") && !musicBox.isConnected) bar.appendChild(musicBox);
 	}
 
+	// AUTO-SEATING (2026-11-04): guests who join fill empty stage seats (Stage input g1/g2) in join order; a seat whose
+	// guest has been gone > 60 s is given to a waiting guest. Handles (h1/h2) are set at preflight and stay with the seat;
+	// "swap handles" exchanges them if the guests landed the wrong way round. Writes the OBS "Stage" input URL.
+	var firstSeen = {}, lastSeen = {};
+	function setStage(changes) {
+		if (!stageUrl) return;
+		var u;
+		try { u = new URL(stageUrl); } catch (e) { return; }
+		Object.keys(changes).forEach(function (k) {
+			if (changes[k]) u.searchParams.set(k, changes[k]); else u.searchParams.delete(k);
+		});
+		stageUrl = u.toString();
+		send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
+	}
+	function guestsHere() {
+		var out = {};
+		if (!window.session || !session.rpcs) return out;
+		for (var U in session.rpcs) {
+			var r = session.rpcs[U];
+			var id = r && r.streamID ? String(r.streamID) : "";
+			if (!/^fpm[a-z0-9]/.test(id) || /:s$/.test(id)) continue; // guests only: lowercase fpm…, no shares, no FPM* host feeds
+			out[id] = (r.label || id);
+		}
+		return out;
+	}
+	var labels = {};
+	setInterval(function () {
+		if (!stageUrl || !ws || ws.readyState !== 1) return;
+		var here = guestsHere(), now = Date.now();
+		Object.keys(here).forEach(function (id) { if (!firstSeen[id]) firstSeen[id] = now; lastSeen[id] = now; labels[id] = here[id]; });
+		var seated = [stageInfo.g1, stageInfo.g2];
+		var waiting = Object.keys(here).filter(function (id) { return seated.indexOf(id) === -1; }).sort(function (a, b) { return firstSeen[a] - firstSeen[b]; });
+		if (!waiting.length) { renderSeats(); return; }
+		var ch = {};
+		["g1", "g2"].forEach(function (seat) {
+			if (!waiting.length) return;
+			var cur = stageInfo[seat];
+			var gone = !cur || (!here[cur] && now - (lastSeen[cur] || 0) > 60000);
+			if (gone) { ch[seat] = waiting.shift(); stageInfo[seat] = ch[seat]; }
+		});
+		if (Object.keys(ch).length) { setStage(ch); broadcast(); }
+		renderSeats();
+	}, 2000);
+	var seatBox = document.createElement("span");
+	seatBox.style.cssText = "display:inline-flex;gap:6px;align-items:center;color:#d7dbe3;font:600 12px system-ui;padding:0 4px";
+	var seatText = document.createElement("span");
+	var swapBtn = document.createElement("button");
+	swapBtn.type = "button";
+	swapBtn.textContent = "⇄ swap handles";
+	swapBtn.style.cssText = "border:0;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;background:#2a3140;color:#d7dbe3";
+	swapBtn.onclick = function () {
+		var h1 = stageInfo.h1, h2 = stageInfo.h2;
+		stageInfo.h1 = h2; stageInfo.h2 = h1;
+		setStage({ h1: h2, h2: h1 });
+		renderSeats();
+		broadcast();
+	};
+	seatBox.appendChild(seatText);
+	seatBox.appendChild(swapBtn);
+	function seatLabel(seat, hk) {
+		var id = stageInfo[seat];
+		var who = id ? (labels[id] || id) : "empty";
+		return (seat === "g1" ? "Seat 1: " : "Seat 2: ") + who + (stageInfo[hk] ? " (" + stageInfo[hk] + ")" : "");
+	}
+	function renderSeats() {
+		seatText.textContent = seatLabel("g1", "h1") + "  ·  " + seatLabel("g2", "h2");
+		if (!seatBox.isConnected && bar.isConnected) bar.appendChild(seatBox);
+	}
+
 	function render() {
 		mount();
 		var list = ONLY ? ONLY.filter(function (n) { return scenes.indexOf(n) !== -1; }) : scenes;
@@ -265,6 +337,8 @@
 					try {
 						var sp = new URL(r.inputSettings.url).searchParams;
 						stageInfo = { g1: sp.get("g1") || "", g2: sp.get("g2") || "", h1: sp.get("h1") || "", h2: sp.get("h2") || "" };
+						stageUrl = r.inputSettings.url;
+						renderSeats();
 					} catch (e) {}
 					broadcast();
 				}
