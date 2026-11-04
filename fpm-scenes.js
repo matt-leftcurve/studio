@@ -209,7 +209,7 @@
 		for (var U in session.rpcs) {
 			var r = session.rpcs[U];
 			var id = r && r.streamID ? String(r.streamID) : "";
-			if (!/^fpm[a-z0-9]/.test(id) || /:s$/.test(id)) continue; // guests only: lowercase fpm…, no shares, no FPM* host feeds
+			if (!/^fpm[A-Za-z0-9]{6,}$/.test(id)) continue; // guests only: "fpm" + id (case-sensitive: FPM* host feeds and ":s" shares excluded)
 			out[id] = (r.label || id);
 		}
 		return out;
