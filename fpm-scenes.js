@@ -259,7 +259,7 @@
 				if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url && /youtube/.test(r.inputSettings.url)) {
 					musicId = ytId(r.inputSettings.url) || musicId;
 					if (musicId) musicBox.value = "♪ " + musicId;
-				} else if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url) {
+				} else if (d.d.requestType === "GetInputSettings" && r.inputSettings && /stage\.html/.test(r.inputSettings.url || "")) {
 					try {
 						var sp = new URL(r.inputSettings.url).searchParams;
 						stageInfo = { g1: sp.get("g1") || "", g2: sp.get("g2") || "", h1: sp.get("h1") || "", h2: sp.get("h2") || "" };

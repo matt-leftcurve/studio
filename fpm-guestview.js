@@ -28,7 +28,7 @@
 	var state = null;
 	var root = null, stage = null, overlay = null, overlayKey = "";
 	var vids = {}; // role -> <video>
-	var hostStage = null, hostStageKey = "", showFrame = null;
+	var hostStage = null, hostStageKey = null, showFrame = null;
 
 	function el(tag, css) {
 		var e = document.createElement(tag);
