@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="fpm-build" content="11-04 17:15" />
+		<meta name="fpm-build" content="11-04 17:24" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="robots" content="noindex" />
 		<title>Join the FULLPORTMATT Studio</title>
@@ -2018,6 +2018,9 @@
 					parts.push("room=" + encodeURIComponent(roomName));
 					parts.push("webcam");
 					parts.push("hiddenrecord");
+					// Drive backup recording in H.264 (hardware encoder on Macs/most PCs); VDO default VP8 = a full-res SOFTWARE
+					// encode on the guest machine (2026-11-04: test laptop sat at ~3.7 cores with only hardware stream copies left).
+					parts.push("recordcodec=h264");
 					parts.push("autostart");
 					if (micOnly) {
 						// No camera: the studio publishes audio only (main.js maps videodevice=0 to session.videoDevice = 0).
