@@ -55,6 +55,12 @@
 		if (q.get("dpr")) {
 			u += "&dpr=" + encodeURIComponent(q.get("dpr"));
 		}
+		// &maxh=N (guest/host views): ask each sender for a FIXED N-line picture instead of panel-sized/1080p. Senders
+		// (guest laptops) software-encode one copy per viewer; 1080p copies made them CPU-bound and laggy in trio.
+		// OBS's stage view never sets this, so the stream keeps full quality.
+		if (q.get("maxh")) {
+			u += "&viewheight=" + encodeURIComponent(q.get("maxh"));
+		}
 		return u;
 	}
 
