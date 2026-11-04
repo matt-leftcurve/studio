@@ -60,6 +60,9 @@
 		// OBS's stage view never sets this, so the stream keeps full quality.
 		if (q.get("maxh")) {
 			u += "&viewheight=" + encodeURIComponent(q.get("maxh"));
+			// people's views: never let VDO's "hidden scene" saver throttle a view (host page dropped Carol in and out
+			// while OBS and the laptop kept her, 2026-11-04)
+			u += "&nohiddensceneoptimization";
 		}
 		// &vcodec=h264 (guest/host views only): ask senders for H.264, which Macs/most PCs encode in HARDWARE; VP8 is
 		// always software. OBS's stage view never sets this (OBS's browser can't play H.264), so OBS stays VP8.
