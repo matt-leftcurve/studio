@@ -153,7 +153,7 @@
 			v.style.objectFit = role === "share" ? "contain" : "cover";
 			v.style.background = role === "share" ? "#000" : "#0e1a2b";
 			// small tiles (intro strip, solo PiP) sit ABOVE the stage page, whose intro background is opaque
-			var small = r[2] < 800;
+			var small = r[2] < 800 && (name === "intro" || name === "solo_pip"); // only where the stage background is opaque; elsewhere the overlay (handle tags) must stay on top
 			v.style.zIndex = small ? "30" : "";
 			v.style.borderRadius = small ? "10px" : "";
 			v.style.boxShadow = small ? "0 0 0 3px #7fd4c1, 0 8px 24px rgba(0,0,0,.6)" : "";
