@@ -115,7 +115,7 @@
 		hostStage.style.display = "block";
 		var q = new URLSearchParams();
 		["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
-		q.set("dpr", params.get("viewdpr") || "2"); // tiles request 2x their size (VDO sizes requests to the box)
+		q.set("dpr", params.get("viewdpr") || "1"); // 2 made guest laptops CPU-bound (software encodes, +delay), 2026-11-04
 		if (!isHost) {
 			q.set("mode", "view"); // Matt's panel via a scene view of FPMHOST
 			q.set("self", me);
