@@ -181,7 +181,9 @@
 		if (document.body && !bar.isConnected) {
 			document.body.appendChild(bar);
 		}
-		if (!musicBox.isConnected) bar.appendChild(musicBox);
+		// Intro music moved to a visible Safari window on the mini (no ads w/ Premium, seekable), captured by OBS
+		// "Intro Music (Safari)". The embed-based box stays available behind &musicbox.
+		if (params.has("musicbox") && !musicBox.isConnected) bar.appendChild(musicBox);
 	}
 
 	function render() {
