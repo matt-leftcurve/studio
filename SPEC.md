@@ -1,0 +1,110 @@
+# FPM Studio Behavior Spec
+
+Matt's standard (2026-11-05): **what Matt sees in the host view is what OBS airs, and every state
+transition (guests, shares, scenes) lands correctly in both — automatically.** Anything that can't
+be identical yet must be on the explicit exceptions list, not discovered on air.
+
+Terms: **program** = OBS output (the audience); **host view** = Matt's host page (&stageview);
+**guest view** = a guest's page; **seats** = Stage URL g1/g2; **present** = seated AND delivering
+live video.
+
+## 1. Invariants — must hold at all times
+
+- **I1 Code parity.** The OBS stage page, host view, guest views, and overlays all run the same
+  deployed build. (Mechanism: host page stamps its build into the Stage URL → OBS reloads;
+  overlay URLs carry the build; single source of truth per I2.)
+- **I2 One definition of geometry.** Layouts, the share-column split, tag anchoring, and the
+  native-camera sizes derive from ONE module, consumed by stage.html, fpm-guestview.js,
+  fpm-scenes.js, and the overlays. No renderer carries its own copy of the numbers.
+- **I3 One writer of seat state.** The Stage input URL is the sole truth for g1/g2/n1/n2 (+legacy
+  h1/h2); only the host page writes it. Preflight clears leftovers; ghosts never air.
+- **I4 Tags.** A tag shows the seated person's entered name; it follows the person through
+  rejoins and swaps; the 𝕏 badge appears only for explicit @handles; an empty seat has NO tag;
+  a replaced person's old handle never survives onto their successor.
+- **I5 No blank boxes.** An empty or video-dead seat renders nothing in tile layouts (solo PiP,
+  intro, share tiles) in every view; SBS/Trio hold a seated-but-reconnecting guest's slot.
+- **I6 Ticker.** Every airable scene shows live prices within ~60 s of becoming active, in host
+  view and program alike; 429s back off and self-heal; "--" on air is a defect (exception:
+  Starting Soon's decorative ticker — decision pending, see Open).
+- **I7 Native camera follows layout.** In Stage - Share the camera's OBS transform matches the
+  column split for the current present-count (solo 1620 / one 798 / two 524, 4K units) BEFORE the
+  scene airs.
+- **I8 Audio routing per scene.** Intro: audience hears music only, mic muted. Solo: Matt (+
+  Safari audio by 11-05 decision). Stage scenes: Matt + present guests + active share audio
+  (tab shares). Nothing reaches the audience twice; nothing intended is missing.
+- **I9 View parity.** The host view renders every element the stage page gives OBS: band art,
+  logo, tags, tiles, share, ticker. OBS-native-only layers are the explicit exceptions list
+  (§5) and nothing else.
+- **I10 Recording.** Streaming ⇒ program .mov + FX3 card recording; each guest ⇒ one Drive ISO
+  from join to stop; no recordings of empty sources.
+
+## 2. Scene parity matrix — host view vs program, element by element
+
+| Scene | Must match | Known native-only (§5) |
+|---|---|---|
+| Solo | camera full frame, logo/band art, ticker, (tiles only if guests present) | chat overlay, captions, badges |
+| Starting Soon | intro art, tile strip of present people | — (music is audio-only) |
+| Stage - SBS | half/half panels, both tags, art, ticker | chat, captions |
+| Stage - Trio | thirds, three tags, art, ticker | chat, captions |
+| Stage - Share | share big; tile column = present people; tags per tile; art, ticker | chat, captions |
+| TradingView / Browser1 | n/a — OBS-native capture; host view shows fallback | window capture itself |
+
+## 3. Transition tests — each must pass in host view AND program AND a guest view
+
+- **T1** Solo → Matt clicks share: auto-switch to Share from ANY scene; screen big; camera full
+  column (web + native layers agree); tag at tile bottom; Matt's preview appears ≤2 s (local path).
+- **T2** Guest joins while Matt shares solo: alert card + beep; nothing on air until Add; on Add:
+  column splits to halves, native camera resizes, guest tile live, tag = their entered name,
+  guest sees the share + correct layout.
+- **T3** Second guest admitted mid-share: thirds, three tags, camera resizes.
+- **T4** Guest leaves mid-share: their tile + tag disappear, column re-expands, camera resizes.
+- **T5** Guest rejoins with a new connection, same name: retakes the same seat instantly (no
+  click, no 60 s wait), tag correct, no duplicate.
+- **T6** ⇄ swap positions: videos and tags swap together, in all views, in every layout.
+- **T7** GUEST shares (0/1/2 other guests): auto-switch while a stage scene airs; the right
+  share shown; their camera tile stays; back to prior scene on stop. Phone guests: no share
+  button (platform limit).
+- **T8** Matt stops sharing: return to the pre-share scene; column layout returns to the
+  non-share arrangement.
+- **T9** Scene changes propagate to guest views ≤2 s.
+- **T10** auto-admit toggle ON restores join-order seating; OFF restores manual admit.
+- **T11** Preflight seat-clear: after it, no ghost tags/tiles anywhere (incl. solo stream).
+- **T12** Tag forms: plain name → no 𝕏 badge; @handle → badge; empty → no tag element.
+- **T13** Share audio (tab share, audio toggle on) reaches the stream track at voice-band level —
+  host share AND guest share.
+- **T14** Mic/Aux mutes on intro scenes only; unmutes on leaving; never stuck either way.
+- **T15** Guest Drive ISO: starts on join (green room incl.), survives token renewal, stops and
+  finishes upload at stream stop; failure alerts Matt; terminal failure saves to guest Downloads.
+- **T16** Build sync: after a deploy + host page reload, OBS stage page runs the new build with
+  NO manual OBS touch.
+
+## 4. Verification methods
+
+1. **Parity pass (per scene):** capture host view (screenshot of the host tab) and program
+   (GetSourceScreenshot with the scene ON PROGRAM — off-program browser sources don't render and
+   screenshot black) → compare element-by-element against §2.
+2. **Probes:** build stamps (page meta vs Stage URL &b), Stage URL params, camera transform
+   (GetSceneItemTransform), ticker DOM/pixel check, Stage input meters + 15 s recording
+   volumedetect for audio, Drive file listing for ISO.
+3. **Live drill (laptop as guest, Matt optional):** run T1-T16 that need a real peer; screenshot
+   proof per step. Required before the next guest show; required after any change to seats,
+   layouts, share, or audio routing.
+
+## 5. Accepted divergences (the ONLY permitted ones)
+
+- OBS-native layers absent from host view: Chat Overlay, Captions, Platform Badges, TeachPanel,
+  window captures (TradingView/Browser scenes). Candidate work: mirror chat + captions into the
+  host view.
+- Host view shows Matt/self with zero delay (by design); program runs ~350 ms behind.
+- Program color/crop of Matt's camera is OBS-native and not reproduced exactly in the host view.
+- Intro music is audience-audio in OBS only; room members get it via their pages.
+
+## 6. Open items against this spec (2026-11-05)
+
+- Host view Solo: fork solo overlay (logo band/ticker) NOT rendering → violates I9. Debug + fix.
+- I2 not yet true: geometry lives in 4 places (stage.html, fpm-guestview.js, retro-share.html,
+  fpm-scenes.js camera table) → extract fpm-layouts.js.
+- Overlay files exist in two copies (fork stage/ vs mini ~/obs-overlays/) → single source +
+  deploy sync; OBS keeps LOCAL copies for offline robustness, synced on every deploy.
+- Starting Soon decorative ticker shows fake green numbers — Matt to decide: real prices or art.
+- T2/T3/T4/T5/T7/T13-guest/T15 never proven with a real peer → first full drill pending.
