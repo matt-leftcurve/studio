@@ -99,12 +99,27 @@ document.getElementById("handleL").textContent=HOST_HANDLE;
   if(!x[2]) document.getElementById(x[1]).style.display="none";
   else if(x[2].charAt(0)!=="@") document.querySelector("#"+x[1]+" .icon").style.display="none"; // a NAME, not an X handle
 });
-// 2026-11-05 (Matt): draw only as many guest tile frames as there are people present — ?tiles=<guest count 0|1|2>.
-// 0 -> just Matt's frame, 1 -> Matt + one, 2 -> all three. No param = legacy: all three.
+// 2026-11-05 (Matt): the tile column splits among whoever is present — ?tiles=<guest count 0|1|2>.
+// Frames, gutters and tags move with the same math stage.html uses (shareSlotRects); n=3 reproduces the
+// original fixed grid exactly. No param = legacy: all three frames.
 (function(){
-  var t=__q.get("tiles");if(t===null)return;var n=parseInt(t,10)||0;
-  if(n<1){document.getElementById("frameR").style.display="none";document.getElementById("gut2").style.display="none";}
-  if(n<2){document.getElementById("frameR2").style.display="none";document.getElementById("gut3").style.display="none";}
+  var t=__q.get("tiles");if(t===null)return;
+  var n=Math.max(1,Math.min(3,(parseInt(t,10)||0)+1)); // people = host + guests
+  var top=165,total=810,gap=12,h=Math.round((total-gap*(n-1))/n);
+  var frames=["frameL","frameR","frameR2"],tags=["tagL","tagR","tagR2"],guts=[null,"gut2","gut3"];
+  for(var i=0;i<3;i++){
+    var fr=document.getElementById(frames[i]),tg=document.getElementById(tags[i]),gu=guts[i]&&document.getElementById(guts[i]);
+    if(i<n){
+      var y=top+i*(h+gap);
+      fr.style.top=y+"px";fr.style.height=h+"px";
+      tg.style.top=(y+h-57)+"px"; // tag hugs its tile's bottom edge (same 57px inset as the fixed grid)
+      if(gu)gu.style.top=(y-gap)+"px";
+    }else{
+      fr.style.display="none";
+      tg.style.display="none";
+      if(gu)gu.style.display="none";
+    }
+  }
 })();
 const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
 const DEXTOKENS=[];

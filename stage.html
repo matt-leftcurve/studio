@@ -128,17 +128,26 @@
 		if (current === "solo_pip" || current === "intro" || current === "share") return liveVideo(panelFrames[role]);
 		return true;
 	}
-	// Share layout tiles compact upward (2026-11-05, Matt): just Matt when he's alone, Matt + one tile with a
-	// single guest, three tiles with two. Tags re-map to the tile ORDER so the name stays next to the person.
-	var SHARE_SLOTS = [[1395, 165, 525, 262], [1395, 439, 525, 262], [1395, 713, 525, 262]];
+	// Share layout tiles split the column among whoever is PRESENT (2026-11-05, Matt): alone = Matt's camera
+	// takes the full height; one guest = two half-height tiles; two = three (identical to the old fixed grid).
+	// Tags re-map to the tile ORDER so the name stays next to the person; the overlay gets ?tiles=N and draws
+	// matching frames.
+	function shareSlotRects(n) {
+		var top = 165, total = 810, gap = 12;
+		var h = Math.round((total - gap * (n - 1)) / n);
+		var out = [];
+		for (var i = 0; i < n; i++) out.push([1395, top + i * (h + gap), 525, h]);
+		return out;
+	}
 	function layoutShare() {
 		var roles = ["host"];
 		["g1", "g2"].forEach(function (role) { if (guestPanelVisible(role)) roles.push(role); });
+		var slots = shareSlotRects(roles.length);
 		["host", "g1", "g2"].forEach(function (role) {
 			var div = panels[role];
 			var idx = roles.indexOf(role);
 			if (idx === -1) { div.style.display = "none"; return; }
-			var r = SHARE_SLOTS[idx];
+			var r = slots[idx];
 			div.style.display = "block";
 			div.style.left = r[0] + "px"; div.style.top = r[1] + "px";
 			div.style.width = r[2] + "px"; div.style.height = r[3] + "px";

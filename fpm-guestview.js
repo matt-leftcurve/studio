@@ -149,9 +149,7 @@
 		// lands in the same slot as the transparent window the stage page leaves for it.
 		var shareSlots = null;
 		if (name === "share") {
-			var SHARE_TILES = [[1395, 165, 525, 262], [1395, 439, 525, 262], [1395, 713, 525, 262]];
-			shareSlots = { host: SHARE_TILES[0] };
-			var sp = 1;
+			var presentG = [];
 			["g1", "g2"].forEach(function (gr) {
 				var sid = state[gr];
 				if (!sid) return;
@@ -160,8 +158,13 @@
 					var sm0 = streamFor(sid);
 					present = !!(sm0 && sm0.getVideoTracks && sm0.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; }));
 				}
-				if (present) shareSlots[gr] = SHARE_TILES[sp++];
+				if (present) presentG.push(gr);
 			});
+			// same column split as stage.html's shareSlotRects: alone = full height, then divide
+			var n = 1 + presentG.length, top = 165, total = 810, gap = 12;
+			var h = Math.round((total - gap * (n - 1)) / n);
+			shareSlots = { host: [1395, top, 525, h] };
+			presentG.forEach(function (gr, i) { shareSlots[gr] = [1395, top + (i + 1) * (h + gap), 525, h]; });
 		}
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role], r = Lp[role];
