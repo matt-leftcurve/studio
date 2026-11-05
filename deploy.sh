@@ -9,6 +9,7 @@
 # Pages CDN takes 1-10 min; verify with:  curl -s https://matt-leftcurve.github.io/studio/ | grep fpm-build
 set -e
 cd "$(dirname "$0")"
+REPO="$(pwd)"
 MINI="carolyuan@100.116.51.32"
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -34,4 +35,4 @@ ssh "$MINI" 'osascript /tmp/hardreload2.scpt' >/dev/null 2>&1 \
 	&& echo "host tab hard-reloaded (build-sync will restamp the Stage URL once Pages serves the new build)" \
 	|| echo "deploy.sh: host tab reload skipped (reload it manually; it syncs OBS's stage page)" >&2
 
-echo "deployed: $(grep -o 'fpm-build\" content=\"[^\"]*\"' index.html | head -1)"
+echo "deployed: $(grep -o 'fpm-build\" content=\"[^\"]*\"' "$REPO/index.html" | head -1)"
