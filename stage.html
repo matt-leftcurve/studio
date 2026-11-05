@@ -144,7 +144,7 @@
 			div.style.width = r[2] + "px"; div.style.height = r[3] + "px";
 		});
 		var t = roles.slice(1).map(function (role) { return role === "g1" ? tag(1) : tag(2); });
-		var want = "stage/retro-share.html?h1=" + encodeURIComponent(t[0] || "") + "&h2=" + encodeURIComponent(t[1] || "");
+		var want = "stage/retro-share.html?tiles=" + (roles.length - 1) + "&h1=" + encodeURIComponent(t[0] || "") + "&h2=" + encodeURIComponent(t[1] || "");
 		if (overlays.share.getAttribute("data-src") !== want) {
 			overlays.share.setAttribute("data-src", want);
 			overlays.share.src = want;
