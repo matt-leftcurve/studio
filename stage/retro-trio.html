@@ -123,6 +123,9 @@ async function poll(){
   try{
     const ids=COINS.map(c=>c[0]).join(",");
     const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+    if(r.status===429){const ra=parseInt(r.headers.get("retry-after")||"0",10);pollDelay=Math.min(600000,Math.max(pollDelay*2,(ra>0?ra*1000:60000)));throw new Error("429");}
+    if(!r.ok)throw new Error("http "+r.status);
+    pollDelay=30000;
     const j=await r.json();
     for(const [id,sym] of COINS){
       if(j[id]) state[sym]={price:j[id].usd, chg:j[id].usd_24h_change||0};
@@ -138,7 +141,14 @@ async function poll(){
   }
   render();
 }
-render(); if(new URLSearchParams(location.search).has("ticker")){poll(); setInterval(poll,30000);} // CoinGecko polling PAUSED 2026-11-03 (rate limit backoff); add ?ticker to re-enable
+render();
+// CoinGecko polling RE-ENABLED 2026-11-05 with 429 backoff (was paused 2026-11-03: every stage instance loads all
+// overlays at once, each polling every 30 s -> rate limit). Now: hidden overlays don't fetch, instances start with
+// random jitter to desync, and a 429 doubles the delay (honoring Retry-After) up to 10 min, resetting on success.
+let pollDelay=30000;
+function tickerVisible(){try{return !window.frameElement||window.frameElement.style.display!=="none";}catch(e){return true;}}
+function schedulePoll(ms){setTimeout(async function(){if(tickerVisible()){try{await poll();}catch(e){}}schedulePoll(pollDelay+Math.random()*3000);},ms);}
+schedulePoll(1000+Math.random()*8000);
 </script>
 <script>
 // 2026-11-04: on the show the band art (bg-laoshi.png) silently failed to load in OBS -> no logo/bands/LIVE badge.

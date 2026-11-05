@@ -85,23 +85,57 @@
 
 	// Panels are created once and only moved/shown/hidden on layout change (no reconnects).
 	var panels = {};
+	var panelFrames = {}; // role -> iframe (absent for empty seats and the self panel)
+	var panelSelf = {}; // role -> true when this panel is the embedding guest's own (local video underneath)
 	["host", "g1", "g2"].forEach(function (role) {
 		var div = document.createElement("div");
 		div.className = "panel";
 		var id = role === "host" ? (MODE === "obs" ? "" : HOST) : q.get(role) || "";
 		var isSelf = !!SELF && id === SELF;
 		if (isSelf) id = "";
+		panelSelf[role] = isSelf;
 		if (id) {
 			var f = document.createElement("iframe");
 			f.allow = "autoplay";
 			f.src = viewUrl(id);
 			div.appendChild(f);
+			panelFrames[role] = f;
 		} else if (role !== "host" && !isSelf) {
 			div.className += " empty";
 		}
 		stage.appendChild(div);
 		panels[role] = div;
 	});
+
+	// Guest rectangles only when there's a guest in them (2026-11-05): an empty seat never shows a blank box,
+	// and in the tile layouts (solo PiP, intro strip) a seat whose guest has no live video hides too, so Solo
+	// with nobody around is just Matt. Main layouts (sbs/trio/share) keep a seated-but-reconnecting guest's
+	// slot to avoid the layout jumping during hiccups.
+	function liveVideo(frame) {
+		try {
+			var rp = frame.contentWindow.session.rpcs;
+			for (var U in rp) {
+				var st = rp[U] && (rp[U].streamSrc || (rp[U].videoElement && rp[U].videoElement.srcObject));
+				if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) return true;
+			}
+		} catch (e) {}
+		return false;
+	}
+	function guestPanelVisible(role) {
+		if (role === "host") return true;
+		if (panelSelf[role]) return true; // own tile: local video drawn by the embedding page
+		if (!panelFrames[role]) return false; // no seat id: never show a blank box
+		if (current === "solo_pip" || current === "intro") return liveVideo(panelFrames[role]);
+		return true;
+	}
+	function applyGuestVisibility() {
+		if (!current || !LAYOUTS[current]) return;
+		["g1", "g2"].forEach(function (role) {
+			if (!LAYOUTS[current].panels[role]) return; // layout already hides it
+			panels[role].style.display = guestPanelVisible(role) ? "block" : "none";
+		});
+	}
+	setInterval(applyGuestVisibility, 1000);
 
 	// Screen shares: VDO publishes a share as "<ID>:s" — guests (g1/g2) and the HOST (FPMHOST:s, 2026-11-05)
 	// alike. Pull all three (idle until a share exists, no cost) into one share panel; the "sharer" role picks
@@ -201,6 +235,7 @@
 			overlays[n].style.display = n === name ? "block" : "none";
 			overlays[n].style.zIndex = LAYOUTS[n].under ? "0" : "";
 		});
+		applyGuestVisibility();
 		document.title = "FULLPORTMATT stage · " + name;
 	}
 
