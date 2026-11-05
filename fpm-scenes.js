@@ -494,6 +494,14 @@
 						stageInfo = { g1: sp.get("g1") || "", g2: sp.get("g2") || "", h1: sp.get("h1") || "", h2: sp.get("h2") || "", n1: sp.get("n1") || "", n2: sp.get("n2") || "" };
 						stageUrl = r.inputSettings.url;
 						renderSeats();
+						// BUILD SYNC (2026-11-05, "AI Crash" post-mortem): OBS's browser source cached a stale
+						// stage.html for ~40 min ON AIR (old tags, no host share, dead ticker) while the host page
+						// ran fresh code. The host page now stamps its own build into the Stage URL; the URL change
+						// makes OBS reload the stage page, so OBS always runs the same code the host page does.
+						var bm0 = document.querySelector('meta[name="fpm-build"]');
+						if (bm0 && bm0.content && sp.get("b") !== bm0.content) {
+							setStage({ b: bm0.content });
+						}
 					} catch (e) {}
 					broadcast();
 				}
