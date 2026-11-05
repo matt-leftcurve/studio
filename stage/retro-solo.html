@@ -100,5 +100,10 @@ async function poll(){
 }
 render(); if(new URLSearchParams(location.search).has("ticker")){poll(); setInterval(poll,30000);} // CoinGecko polling PAUSED 2026-11-03 (rate limit backoff); add ?ticker to re-enable
 </script>
+<script>
+// 2026-11-04: on the show the band art (bg-laoshi.png) silently failed to load in OBS -> no logo/bands/LIVE badge.
+// Verify it loaded; if not, retry with a cache-buster until it does.
+(function(){var n=0;function chk(){var i=new Image();i.onload=function(){if(n>0){document.querySelectorAll("*").forEach(function(e){var b=getComputedStyle(e).backgroundImage;if(b&&b.indexOf("bg-laoshi.png")!==-1)e.style.backgroundImage='url("bg-laoshi.png?r='+n+'")';});}};i.onerror=function(){n++;setTimeout(chk,2000);};i.src="bg-laoshi.png"+(n?"?r="+n:"");}chk();})();
+</script>
 </body>
 </html>
