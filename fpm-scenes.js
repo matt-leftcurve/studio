@@ -62,6 +62,31 @@
 	// Auto screen-share switching: when a guest's share ("<id>:s") goes live while a stage scene is on air,
 	// switch OBS to the Share scene; when it ends, return to the scene we came from (unless Matt moved on).
 	var SHARE_SCENE = params.get("sharescene") || "Stage - Share";
+	// NATIVE CAMERA FOLLOWS THE SHARE COLUMN (2026-11-05 audit): the stage page reshapes its web tiles by who
+	// is present, but Matt's camera is a NATIVE OBS layer with a fixed transform — solo-share aired as a small
+	// camera over a full-height frame ("AI Crash"). The host page now sizes that scene item itself: 4K-canvas
+	// bounds at x2790 y330 w1050, height 1620 (solo) / 798 (one guest) / 524 (two, the legacy grid). Updated
+	// continuously so the scene is correct BEFORE it goes on air. Known edge: a connected guest with a muted
+	// camera still counts here while the stage page hides their tile — camera then sits one size too small
+	// (cosmetic black row) until they unmute or leave.
+	var CAM_SOURCE = params.get("camsource") || "Osmo Pocket 4";
+	var camItemId = 0, camLastH = 0;
+	function camHeightFor(guests) { return guests === 0 ? 1620 : guests === 1 ? 798 : 524; }
+	function presentGuestCount() {
+		var here = guestsHere(), n = 0;
+		if (stageInfo.g1 && here[stageInfo.g1]) n++;
+		if (stageInfo.g2 && here[stageInfo.g2]) n++;
+		return n;
+	}
+	setInterval(function () {
+		if (!ws || ws.readyState !== 1 || !camItemId) return;
+		var h = camHeightFor(presentGuestCount());
+		if (h === camLastH) return;
+		camLastH = h;
+		send("SetSceneItemTransform", { sceneName: SHARE_SCENE, sceneItemId: camItemId, sceneItemTransform: {
+			positionX: 2790, positionY: 330, boundsType: "OBS_BOUNDS_SCALE_OUTER", boundsAlignment: 0,
+			boundsWidth: 1050, boundsHeight: h, cropToBounds: true } });
+	}, 2000);
 	var sharing = ""; // guest id currently sharing
 	var beforeShare = "";
 	var shareDbg = document.createElement("span");
@@ -483,6 +508,7 @@
 				send("GetSceneList");
 				send("GetInputSettings", { inputName: STAGE_INPUT });
 				send("GetInputSettings", { inputName: MUSIC_INPUT });
+				send("GetSceneItemList", { sceneName: SHARE_SCENE });
 			} else if (d.op === 7) {
 				var r = d.d.responseData || {};
 				if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url && /youtube/.test(r.inputSettings.url)) {
@@ -505,6 +531,10 @@
 					} catch (e) {}
 					broadcast();
 				}
+				if (d.d.requestType === "GetSceneItemList" && r.sceneItems) {
+					var camIt = r.sceneItems.filter(function (it) { return it.sourceName === CAM_SOURCE; })[0];
+					if (camIt) { camItemId = camIt.sceneItemId; camLastH = 0; } // re-apply after any rediscovery
+				}
 				if (d.d.requestType === "GetSceneList" && r.scenes) {
 					scenes = r.scenes.slice().sort(function (a, b) { return b.sceneIndex - a.sceneIndex; }).map(function (s) { return s.sceneName; });
 					current = r.currentProgramSceneName || current;
@@ -523,6 +553,7 @@
 					send("GetInputSettings", { inputName: STAGE_INPUT });
 				} else if (ev === "SceneListChanged" || ev === "SceneNameChanged" || ev === "SceneCreated" || ev === "SceneRemoved") {
 					send("GetSceneList");
+					send("GetSceneItemList", { sceneName: SHARE_SCENE }); // camera item id may have changed
 				}
 			}
 		};
