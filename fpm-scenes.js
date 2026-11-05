@@ -49,7 +49,11 @@
 	function broadcast() {
 		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
 		try {
+			var hereNow = guestsHere();
 			var st = { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2, n1: stageInfo.n1, n2: stageInfo.n2, sharer: typeof sharing === "string" ? sharing : "" };
+			// per-seat presence (2026-11-05): room links are &novideo, so people's pages CANNOT infer presence
+			// from video — the host page is the one truth (seated AND connected, camera state irrelevant)
+			st.ps = { g1: !!(stageInfo.g1 && hereNow[stageInfo.g1]), g2: !!(stageInfo.g2 && hereNow[stageInfo.g2]) };
 			st.music = musicId;
 			session.sendGenericData({ fpmStage: st });
 		} catch (e) {}

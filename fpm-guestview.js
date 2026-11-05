@@ -140,7 +140,7 @@
 			var bm = document.querySelector('meta[name="fpm-build"]');
 			hostStage.src = "./stage.html?" + hk + "&layout=" + name + "&b=" + encodeURIComponent(bm ? bm.content : Date.now()); // &b: never a stale cached stage page // no &audio: audio comes from the room connections
 		}
-		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name, sharer: state.sharer || "" } }, "*"); } catch (e) {}
+		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name, sharer: state.sharer || "", ps: state.ps || null } }, "*"); } catch (e) {}
 		overlay.style.display = "none"; // the stage page draws the overlay
 		overlayKey = "";
 		var Lp = LAYOUTS[name].panels;
@@ -161,8 +161,10 @@
 			["g1", "g2"].forEach(function (gr) {
 				var sid = state[gr];
 				if (!sid) return;
-				var present = sid === me;
-				if (!present) {
+				var present;
+				if (state.ps && gr in state.ps) present = !!state.ps[gr]; // host-page presence broadcast (room links are &novideo — video checks lie here)
+				else if (sid === me) present = true;
+				else {
 					var sm0 = streamFor(sid);
 					present = !!(sm0 && sm0.getVideoTracks && sm0.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; }));
 				}

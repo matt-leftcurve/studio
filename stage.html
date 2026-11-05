@@ -130,9 +130,11 @@
 		} catch (e) {}
 		return false;
 	}
+	var psHint = null; // per-seat presence from the embedding page (people's views; OBS never gets it)
 	function guestPanelVisible(role) {
 		if (role === "host") return true;
-		if (panelSelf[role]) return true; // own tile: local video drawn by the embedding page
+		if (panelSelf[role]) return true; // own tile first: a guest always sees themselves
+		if (psHint && (role in psHint)) return !!psHint[role]; // host-page presence truth (SPEC: one presence signal in people's views)
 		if (!panelFrames[role]) return false; // no seat id: never show a blank box
 		if (current === "solo_pip" || current === "intro" || current === "share") return liveVideo(panelFrames[role]);
 		return true;
@@ -315,6 +317,7 @@
 			var sid = d.fpmStage.sharer || "";
 			sharerHint = sid === HOST ? "host" : sid && sid === q.get("g1") ? "g1" : sid && sid === q.get("g2") ? "g2" : "";
 		}
+		if (d && d.fpmStage && "ps" in d.fpmStage) psHint = d.fpmStage.ps || null;
 		if (d && d.fpmStage && d.fpmStage.layout) setLayout(d.fpmStage.layout);
 	});
 	window.fpmStage = { setLayout: setLayout, layout: function () { return current; } };
