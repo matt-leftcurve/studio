@@ -87,6 +87,7 @@
   <div class="scan" id="scantop"></div>
   <div class="scan" id="scanbot"></div>
   <div class="shine"></div>
+<script src="../fpm-layouts.js"></script>
 <script>
 
 // panel name tags — edit per guest episode
@@ -103,20 +104,19 @@ document.getElementById("handleL").textContent=HOST_HANDLE;
 // Frames, gutters and tags move with the same math stage.html uses (shareSlotRects); n=3 reproduces the
 // original fixed grid exactly. No param = legacy: all three frames.
 (function(){
-  var t=__q.get("tiles");if(t===null)return;
+  var t=__q.get("tiles");if(t===null||!window.fpmLayouts)return;
   var n=Math.max(1,Math.min(3,(parseInt(t,10)||0)+1)); // people = host + guests
-  var top=165,total=810,gap=12,h=Math.round((total-gap*(n-1))/n);
+  var slots=fpmLayouts.shareSlots(n); // geometry from ../fpm-layouts.js (SPEC I2)
   var frames=["frameL","frameR","frameR2"],tags=["tagL","tagR","tagR2"],guts=[null,"gut2","gut3"];
   for(var i=0;i<3;i++){
     var fr=document.getElementById(frames[i]),tg=document.getElementById(tags[i]),gu=guts[i]&&document.getElementById(guts[i]);
     if(i<n){
-      var y=top+i*(h+gap);
-      fr.style.top=y+"px";fr.style.height=h+"px";
-      // tag keeps ONE size whatever the tile size (Matt, 2026-11-05 — reverted same-day scaling experiment)
-      // and hugs its tile's bottom edge (same 57px inset as the original fixed grid)
+      var r=slots[i];
+      fr.style.top=r[1]+"px";fr.style.height=r[3]+"px";
+      // tag keeps ONE size whatever the tile size (Matt, 2026-11-05) and hugs its tile's bottom edge
       tg.style.transform="";
-      tg.style.top=(y+h-57)+"px";
-      if(gu)gu.style.top=(y-gap)+"px";
+      tg.style.top=(r[1]+r[3]-fpmLayouts.TAG_INSET)+"px";
+      if(gu)gu.style.top=(r[1]-fpmLayouts.SHARE_COL.gap)+"px";
     }else{
       fr.style.display="none";
       tg.style.display="none";

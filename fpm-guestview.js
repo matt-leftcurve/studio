@@ -16,15 +16,23 @@
 	if ((!/^fpm/.test(me) && !isHost) || params.has("nostageview") || params.has("director") || params.has("scene")) {
 		return;
 	}
+	// Geometry from fpm-layouts.js (SPEC I2); guestview-only entries (show) stay literal.
+	var LGEO = window.fpmLayouts;
+	function L_(name) {
+		var p = {};
+		Object.keys(LGEO.PANELS[name] || {}).forEach(function (k) { p[k] = LGEO.PANELS[name][k].slice(); });
+		return { overlay: "", panels: p };
+	}
 	var LAYOUTS = {
-		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
-		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
-		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
-		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 262], g1: [1395, 439, 525, 262], g2: [1395, 713, 525, 262] } },
+		solo: L_("solo"),
+		sbs: L_("sbs"),
+		trio: L_("trio"),
+		share: L_("share"),
 		show: { overlay: "", panels: { show: [0, 0, 1920, 1080] } },
-		intro: { overlay: "", panels: { host: [340, 775, 400, 225], g1: [760, 775, 400, 225], g2: [1180, 775, 400, 225] } },
-		solo_pip: { overlay: "", panels: { host: [0, 0, 1920, 1080], g1: [1530, 200, 360, 203], g2: [1530, 418, 360, 203] } }
+		intro: L_("intro"),
+		solo_pip: L_("solo_pip")
 	};
+	LGEO.shareSlots(3).forEach(function (r, i) { LAYOUTS.share.panels[["host", "g1", "g2"][i]] = r; });
 	var state = null;
 	var root = null, stage = null, overlay = null, overlayKey = "";
 	var vids = {}; // role -> <video>
@@ -160,11 +168,10 @@
 				}
 				if (present) presentG.push(gr);
 			});
-			// same column split as stage.html's shareSlotRects: alone = full height, then divide
-			var n = 1 + presentG.length, top = 165, total = 810, gap = 12;
-			var h = Math.round((total - gap * (n - 1)) / n);
-			shareSlots = { host: [1395, top, 525, h] };
-			presentG.forEach(function (gr, i) { shareSlots[gr] = [1395, top + (i + 1) * (h + gap), 525, h]; });
+			// same column split as stage.html — both via fpm-layouts.js (SPEC I2)
+			var rects = LGEO.shareSlots(1 + presentG.length);
+			shareSlots = { host: rects[0] };
+			presentG.forEach(function (gr, i) { shareSlots[gr] = rects[i + 1]; });
 		}
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role], r = Lp[role];

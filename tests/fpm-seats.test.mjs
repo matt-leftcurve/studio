@@ -1,0 +1,22 @@
+// node tests/fpm-seats.test.mjs — seat planner rules (SPEC I3/I4, T2-T5, T10)
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const S = require("../fpm-seats.js");
+import assert from "assert";
+const T = 1_000_000, empty = { g1: "", g2: "" };
+let r = S.plan({ seats: empty, names: empty, here: { fpmA: "Joe", fpmB: "Ann" }, firstSeen: { fpmA: 1, fpmB: 2 }, lastSeen: { fpmA: T, fpmB: T }, now: T, autoAdmit: false });
+assert.deepStrictEqual(r.waiting, ["fpmA", "fpmB"]); assert.deepStrictEqual(r.seats, { g1: "", g2: "" });
+r = S.plan({ seats: empty, names: empty, here: { fpmB: "Ann", fpmA: "Joe" }, firstSeen: { fpmA: 1, fpmB: 2 }, lastSeen: { fpmA: T, fpmB: T }, now: T, autoAdmit: true });
+assert.deepStrictEqual(r.seats, { g1: "fpmA", g2: "fpmB" }); assert.deepStrictEqual(r.names, { g1: "Joe", g2: "Ann" });
+assert.strictEqual(S.admit({ seats: { g1: "fpmA", g2: "" }, here: { fpmA: "Joe" }, lastSeen: { fpmA: T }, now: T }, "fpmB"), "g2");
+assert.strictEqual(S.admit({ seats: { g1: "fpmA", g2: "fpmB" }, here: { fpmA: "J", fpmB: "A" }, lastSeen: { fpmA: T, fpmB: T }, now: T }, "fpmC"), "");
+r = S.plan({ seats: { g1: "fpmOld", g2: "fpmB" }, names: { g1: "Jerry", g2: "Ann" }, here: { fpmNew: "jerry ", fpmB: "Ann" }, firstSeen: { fpmNew: T, fpmB: 2 }, lastSeen: { fpmOld: T - 5000, fpmB: T }, now: T, autoAdmit: false });
+assert.deepStrictEqual(r.seats, { g1: "fpmNew", g2: "fpmB" }); assert.deepStrictEqual(r.rejoined, [{ id: "fpmNew", seat: "g1" }]);
+r = S.plan({ seats: { g1: "fpmA", g2: "" }, names: { g1: "Joe", g2: "" }, here: { fpmA: "Joe", fpmFake: "Joe" }, firstSeen: { fpmA: 1, fpmFake: T }, lastSeen: { fpmA: T, fpmFake: T }, now: T, autoAdmit: false });
+assert.strictEqual(r.seats.g1, "fpmA"); assert.deepStrictEqual(r.waiting, ["fpmFake"]);
+r = S.plan({ seats: { g1: "fpmGone", g2: "" }, names: { g1: "Old", g2: "" }, here: { fpmC: "Cat" }, firstSeen: { fpmC: T }, lastSeen: { fpmGone: T - 61000, fpmC: T }, now: T, autoAdmit: true });
+assert.strictEqual(r.seats.g1, "fpmC");
+r = S.plan({ seats: { g1: "fpmA", g2: "" }, names: { g1: "Joe", g2: "" }, here: { fpmA: "Joseph" }, firstSeen: { fpmA: 1 }, lastSeen: { fpmA: T }, now: T, autoAdmit: false });
+assert.strictEqual(r.names.g1, "Joseph");
+assert.deepStrictEqual(S.swap({ g1: "A", g2: "B" }, { g1: "Ann", g2: "Bob" }), { seats: { g1: "B", g2: "A" }, names: { g1: "Bob", g2: "Ann" } });
+console.log("fpm-seats: all tests pass");

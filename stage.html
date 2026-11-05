@@ -15,6 +15,7 @@
 </head>
 <body>
 <div id="stage"></div>
+<script src="fpm-layouts.js"></script>
 <script>
 // FULLPORTMATT stage page. One definition of each guest layout.
 // In OBS: ONE browser source (1920x1080, stretched to the canvas) shared by every "Stage - …" scene. OBS tells
@@ -26,6 +27,7 @@
 // audio=1 lets guest audio play (OBS routes it monitor-only, like the old per-guest sources).
 (function () {
 	var q = new URLSearchParams(location.search);
+	var LGEO = window.fpmLayouts; // single source of truth for geometry (fpm-layouts.js, SPEC I2)
 	var ROOM = q.get("room") || "fpmshow";
 	var MODE = q.get("mode") || "obs";
 	var AUDIO = q.get("audio") === "1";
@@ -33,18 +35,25 @@
 	// self=<id>: embedded in that guest's own page; their panel (and their own screen share) stays transparent so
 	// the page can show its LOCAL camera/share underneath (zero delay, no self-view over the network).
 	var SELF = q.get("self") || "";
+	// Geometry comes from fpm-layouts.js (SPEC I2); only per-layout FLAGS live here.
+	// share tiles are positioned dynamically by layoutShare() via LGEO.shareSlots; its panels
+	// entry carries only the share rect (plus host/g1/g2 markers so panels show in that layout).
+	function L_(name, extra) {
+		var def = { overlay: LGEO.OVERLAYS[name], panels: {} };
+		Object.keys(LGEO.PANELS[name] || {}).forEach(function (k) { def.panels[k] = LGEO.PANELS[name][k].slice(); });
+		Object.keys(extra || {}).forEach(function (k) { def[k] = extra[k]; });
+		return def;
+	}
 	var LAYOUTS = {
-		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
-		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
-		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
-		// share: screen large, Matt top-right, the SHARING guest's camera bottom-right ("sharer" is g1 or g2)
-		// share: screen large + three stacked tiles: Matt, guest 1, guest 2 (2026-11-04; was screen + Matt + sharer only)
-		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 262], g1: [1395, 439, 525, 262], g2: [1395, 713, 525, 262] } },
-		// Guest/host views only (OBS never shows stage.html in these scenes): intro screen with everyone in a tile
-		// strip, and the solo scene with the guests in small tiles so they still see themselves/each other.
-		intro: { overlay: "stage/intro.html", under: true, panels: { host: [340, 775, 400, 225], g1: [760, 775, 400, 225], g2: [1180, 775, 400, 225] } },
-		solo_pip: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080], g1: [1530, 200, 360, 203], g2: [1530, 418, 360, 203] }, tiles: ["g1", "g2"] }
+		solo: L_("solo"),
+		sbs: L_("sbs"),
+		trio: L_("trio"),
+		share: L_("share"),
+		intro: L_("intro", { under: true }),
+		solo_pip: L_("solo_pip", { tiles: ["g1", "g2"] })
 	};
+	// share layout: host/g1/g2 panels exist (placed by layoutShare), seeded from the 3-slot grid
+	LGEO.shareSlots(3).forEach(function (r, i) { LAYOUTS.share.panels[["host", "g1", "g2"][i]] = r; });
 	var stage = document.getElementById("stage");
 
 	function viewUrl(id) {
@@ -132,17 +141,10 @@
 	// takes the full height; one guest = two half-height tiles; two = three (identical to the old fixed grid).
 	// Tags re-map to the tile ORDER so the name stays next to the person; the overlay gets ?tiles=N and draws
 	// matching frames.
-	function shareSlotRects(n) {
-		var top = 165, total = 810, gap = 12;
-		var h = Math.round((total - gap * (n - 1)) / n);
-		var out = [];
-		for (var i = 0; i < n; i++) out.push([1395, top + i * (h + gap), 525, h]);
-		return out;
-	}
 	function layoutShare() {
 		var roles = ["host"];
 		["g1", "g2"].forEach(function (role) { if (guestPanelVisible(role)) roles.push(role); });
-		var slots = shareSlotRects(roles.length);
+		var slots = LGEO.shareSlots(roles.length);
 		["host", "g1", "g2"].forEach(function (role) {
 			var div = panels[role];
 			var idx = roles.indexOf(role);

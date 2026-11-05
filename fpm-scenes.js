@@ -71,7 +71,6 @@
 	// (cosmetic black row) until they unmute or leave.
 	var CAM_SOURCE = params.get("camsource") || "Osmo Pocket 4";
 	var camItemId = 0, camLastH = 0;
-	function camHeightFor(guests) { return guests === 0 ? 1620 : guests === 1 ? 798 : 524; }
 	function presentGuestCount() {
 		var here = guestsHere(), n = 0;
 		if (stageInfo.g1 && here[stageInfo.g1]) n++;
@@ -79,13 +78,13 @@
 		return n;
 	}
 	setInterval(function () {
-		if (!ws || ws.readyState !== 1 || !camItemId) return;
-		var h = camHeightFor(presentGuestCount());
-		if (h === camLastH) return;
-		camLastH = h;
+		if (!ws || ws.readyState !== 1 || !camItemId || !window.fpmLayouts) return;
+		var b = fpmLayouts.camBounds(presentGuestCount()); // geometry from fpm-layouts.js (SPEC I2)
+		if (b.h === camLastH) return;
+		camLastH = b.h;
 		send("SetSceneItemTransform", { sceneName: SHARE_SCENE, sceneItemId: camItemId, sceneItemTransform: {
-			positionX: 2790, positionY: 330, boundsType: "OBS_BOUNDS_SCALE_OUTER", boundsAlignment: 0,
-			boundsWidth: 1050, boundsHeight: h, cropToBounds: true } });
+			positionX: b.x, positionY: b.y, boundsType: "OBS_BOUNDS_SCALE_OUTER", boundsAlignment: 0,
+			boundsWidth: b.w, boundsHeight: b.h, cropToBounds: true } });
 	}, 2000);
 	var sharing = ""; // guest id currently sharing
 	var beforeShare = "";
