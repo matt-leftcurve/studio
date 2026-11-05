@@ -28,6 +28,7 @@
 	var uploaded = 0;
 	var recorded = 0;
 	var finalized = false;
+	var savedLocal = false; // the uploader saved the recording to the guest's Downloads (upload failed)
 	var samples = []; // [time ms, uploaded bytes] over the last ~30 s, for the rough time-left estimate
 	var chip = null;
 	var hold = null;
@@ -185,10 +186,12 @@
 			eta.textContent = "";
 			chip.querySelector(".fpm-upload__chip").setAttribute("aria-label", "Recording upload complete");
 		} else if (state === "failed") {
-			pct.textContent = "Recording saved";
-			title.textContent = "Recording saved";
-			text.textContent = "The upload didn\u2019t finish, but your recording is kept safely on this device and we\u2019ll recover it. Nothing to do on your side.";
-			eta.textContent = "We\u2019ll take it from here";
+			pct.textContent = savedLocal ? "Saved to Downloads" : "Upload stopped";
+			title.textContent = savedLocal ? "Recording saved to your Downloads" : "Upload stopped";
+			text.textContent = savedLocal
+				? "The upload to the studio didn\u2019t finish, so your recording was saved to your Downloads folder (file ending in \u201c-backup\u201d). Please send that file to Matt."
+				: "The upload to the studio stopped. Keep this tab open: when the show ends your recording will be saved to your Downloads folder.";
+			eta.textContent = savedLocal ? "Please send the file to Matt" : "Keep this tab open";
 			chip.querySelector(".fpm-upload__chip").setAttribute("aria-label", "Recording saved. The upload did not finish; we will recover it.");
 		}
 	}
@@ -249,9 +252,9 @@
 		} else if (state === "failed") {
 			icon.innerHTML = HOLD_ICON_SAVED;
 			eyebrow.textContent = "Recording saved";
-			title.innerHTML = "Your recording is <em>safe</em> \u2014 you can close this tab";
-			lede.textContent = "The upload didn\u2019t finish, but the recording is kept on this device and we\u2019ll recover it. Thanks for coming on the show!";
-			fine.textContent = "Nothing else to do on your side.";
+			title.innerHTML = "Your recording is in your <em>Downloads</em> folder";
+			lede.textContent = "The upload to the studio didn\u2019t finish, so we saved your recording to your computer (file ending in \u201c-backup\u201d). Thanks for coming on the show!";
+			fine.textContent = "Please send that file to Matt. Then you can close this tab.";
 		}
 	}
 
@@ -286,6 +289,7 @@
 		uploaded = up;
 		recorded = rec;
 		finalized = !!d.finalized;
+		if (d.savedLocal) savedLocal = true;
 		if (d.state === "failed") {
 			state = "failed";
 			pending = false;

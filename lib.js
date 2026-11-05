@@ -58959,6 +58959,9 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 	var rejectCompletion;
 	function failUpload(error) {
 		uploadError = error;
+		if (finalized) {
+			setTimeout(function () { try { fpmSaveLocal("upload failed"); } catch (e) {} }, 0);
+		}
 		if (rejectCompletion) {
 			rejectCompletion(error);
 		}
@@ -59267,7 +59270,15 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 	/// the following doesn't need to be signed in; just access to the gdrive.sessionUri URL
 
 	gdrive.addChunk = function (chunk) {
+		// FPM 2026-11-04: keep every recorded piece locally so a dead upload can still be saved to disk.
+		if (chunk && fpmKeepLocal) {
+			fpmLocalParts.push(chunk);
+			fpmLocalType = chunk.type || fpmLocalType;
+		}
 		if (uploadError || uploadResult) {
+			if (chunk === false && uploadError) {
+				fpmSaveLocal("upload failed");
+			}
 			return;
 		}
 		if (chunk && chunks) {
@@ -59290,6 +59301,7 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 				rejectCompletion = reject;
 			});
 			if (uploadError) {
+				fpmSaveLocal("upload failed"); // FPM: dead upload -> keep the recording on the guest's computer
 				rejectCompletion(uploadError);
 			} else if (uploadResult) {
 				resolveCompletion(uploadResult);
@@ -59319,9 +59331,10 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 				} else {
 					var chunkSize = Math.floor((chunks.size - 1) / (256 * 1024)) * (256 * 1024);
 					var chunk = chunks.slice(0, chunkSize);
-					chunks = chunks.slice(chunkSize);
 				}
+				var before = currentByte;
 				currentByte = await uploadChunk(chunk);
+				chunks = chunks.slice(currentByte - before); // drop only what Drive confirmed
 			}
 		} catch (error) {
 			failUpload(error);
@@ -59330,7 +59343,104 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 		}
 	}
 
+	// FPM 2026-11-04: one failed chunk used to kill the whole upload (and lose the piece). Now: retry with backoff
+	// for up to ~3 h, re-syncing with Drive's own record of how much it has (resumable "status" query).
+	var fpmKeepLocal = !!session.hiddenRecord;
+	var fpmLocalParts = [];
+	var fpmLocalType = "video/webm";
+	var fpmSaved = false;
+	function fpmSaveLocal(reason) {
+		if (fpmSaved || !fpmLocalParts.length) return;
+		fpmSaved = true;
+		try {
+			var blob = new Blob(fpmLocalParts, { type: fpmLocalType });
+			var a = document.createElement("a");
+			var base = (filename || "fpm-recording").replace(/\.(webm|mkv|mp4)$/i, "");
+			a.href = URL.createObjectURL(blob);
+			a.download = base + "-backup" + (/matroska/.test(fpmLocalType) ? ".mkv" : ".webm");
+			document.body.appendChild(a);
+			a.click();
+			setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 600000);
+			warnlog("FPM: saved recording locally (" + reason + "), " + blob.size + " bytes");
+			try { document.dispatchEvent(new CustomEvent("fpm-drive-upload", { detail: { state: "failed", uploaded: totalChunksUploaded, recorded: totalChunksRecorded, finalized: true, savedLocal: true } })); } catch (e) {}
+		} catch (e) {
+			errorlog(e);
+		}
+	}
+	gdrive.saveLocal = fpmSaveLocal;
+	function fpmSleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+	async function fpmStatus(totalKnown) {
+		// ask Drive how many bytes it has; returns {done:result} or {confirmed:n}
+		var resp = await fetch(gdrive.sessionUri, { method: "PUT", headers: new Headers({ "Content-Range": "bytes */" + (totalKnown == null ? "*" : totalKnown) }) });
+		if (resp.status === 200 || resp.status === 201) return { done: await resp.json() };
+		if (resp.status === 308) {
+			var r = resp.headers.get("Range");
+			var m = r && r.match(/bytes=0-(\d+)/);
+			return { confirmed: m ? parseInt(m[1], 10) + 1 : 0 };
+		}
+		var e = new Error("status " + resp.status);
+		e.fatal = resp.status === 404 || resp.status === 410;
+		throw e;
+	}
+	async function fpmSend(chunk, isFinal) {
+		var t0 = Date.now(), wait = 1000;
+		while (true) {
+			var endByte = currentByte + chunk.size - 1;
+			var total = isFinal ? currentByte + chunk.size : "*";
+			try {
+				var resp = await fetch(gdrive.sessionUri, {
+					method: "PUT",
+					headers: new Headers({ "Content-Range": chunk.size ? "bytes " + currentByte + "-" + endByte + "/" + total : "bytes */" + total }),
+					body: chunk,
+					signal: options.signal
+				});
+				if (isFinal && resp.ok) return { done: await resp.json() };
+				if (!isFinal && (resp.ok || resp.status === 308)) {
+					var r = resp.headers.get("Range");
+					var m = r && r.match(/bytes=0-(\d+)/);
+					var confirmed = m ? parseInt(m[1], 10) + 1 : endByte + 1;
+					return { confirmed: confirmed };
+				}
+				if (resp.status === 404 || resp.status === 410) {
+					var fe = new Error("upload session expired (" + resp.status + ")");
+					fe.fatal = true;
+					throw fe;
+				}
+				throw new Error("HTTP " + resp.status);
+			} catch (err) {
+				if (err && err.fatal) throw err;
+				if (options.signal && options.signal.aborted) throw err;
+				if (Date.now() - t0 > 3 * 3600 * 1000) throw err;
+				warnlog("FPM upload retry in " + wait + " ms: " + (err && err.message));
+				await fpmSleep(wait);
+				wait = Math.min(wait * 2, 30000);
+				try {
+					var st = await fpmStatus(isFinal ? currentByte + chunk.size : null);
+					if (st.done) return st;
+					if (st.confirmed > currentByte) {
+						var skip = Math.min(st.confirmed - currentByte, chunk.size);
+						chunk = chunk.slice(skip);
+						totalChunksUploaded += skip;
+						currentByte += skip;
+						if (!isFinal && !chunk.size) return { confirmed: currentByte };
+					}
+				} catch (e2) {
+					if (e2 && e2.fatal) throw e2;
+				}
+			}
+		}
+	}
+
 	async function uploadChunk(chunk) {
+		var startedAt = currentByte;
+		var res = await fpmSend(chunk, false);
+		var advanced = res.confirmed - startedAt;
+		totalChunksUploaded += Math.max(0, advanced - (currentByte - startedAt));
+		updateProgressBar();
+		return res.confirmed;
+	}
+
+	async function uploadChunkLegacy(chunk) {
 		const endByte = currentByte + chunk.size - 1;
 		const headers = new Headers({
 			"Content-Range": `bytes ${currentByte}-${endByte}/*`
@@ -59350,6 +59460,13 @@ function setupGoogleDriveUploader(filename = false, sessionUri = false, options 
 	}
 
 	async function finalizeUpload(chunk) {
+		var res = await fpmSend(chunk, true);
+		totalChunksUploaded = totalChunksRecorded;
+		updateProgressBar(2);
+		return res.done;
+	}
+
+	async function finalizeUploadLegacy(chunk) {
 		const endByte = currentByte + chunk.size - 1;
 		const headers = new Headers({
 			"Content-Range": `bytes ${currentByte}-${endByte}/${endByte + 1}`

@@ -68,7 +68,9 @@
 
 	async function connectDrive() {
 		try {
-			if (!(session.gdrive && session.gdrive.accessToken)) {
+			if (session.gdrive && session.gdrive.accessToken && session.gdrive.requestAccessToken && tokenAge() > RENEW_AT) {
+				session.gdrive.requestAccessToken(); // expired/expiring key: renew from the click (popup allowed)
+			} else if (!(session.gdrive && session.gdrive.accessToken)) {
 				session.gdrive = setupGoogleDriveUploader();
 				if (session.gdrive.promise) {
 					await session.gdrive.ensureInitialized();
@@ -172,7 +174,7 @@
 			render();
 			return;
 		}
-		btn.style.display = hasToken() ? "none" : "inline-block";
+		btn.style.display = hasToken() && tokenAge() < 59 * 60000 ? "none" : "inline-block";
 		if (armed && hasToken() && Date.now() - loadedAt > GRACE_MS) {
 			Object.keys(session.rpcs || {}).forEach(function (UUID) {
 				if (!isGuest(UUID) || stopped[UUID] || recordingAlive(UUID)) {
@@ -204,11 +206,13 @@
 			return "○ " + label(UUID);
 		});
 		var head = "Auto Drive: " + (armed ? "armed" : "off (stream ended)");
-		if (!hasToken()) {
+		var age = tokenAge();
+		if (!hasToken() || age > 59 * 60000) {
 			head += " · NOT CONNECTED (click below)";
 			bar.style.background = "rgba(140,30,30,.95)";
 		} else {
-			bar.style.background = "rgba(20,24,32,.92)";
+			head += " · Drive " + Math.max(0, Math.round((60 * 60000 - age) / 60000)) + " min left" + (age > RENEW_AT ? " (renewing…)" : "");
+			bar.style.background = age > RENEW_AT + 5 * 60000 ? "rgba(150,100,10,.95)" : "rgba(20,24,32,.92)";
 		}
 		if (OBS_PASS) {
 			head += " · OBS " + (obsLive === null ? "?" : obsLive ? "LIVE" : "off-air");
@@ -279,6 +283,24 @@
 	}
 
 	setInterval(tick, 4000);
+
+	// DRIVE KEY RENEWAL (2026-11-04): the Google key the director holds lasts 1 h and is needed to START each guest's
+	// upload session (running uploads keep going without it). Renew at 45 min so late joins / rejoins still record.
+	// Renewal opens Google's popup without a click, so the mini's Chrome must ALLOW POP-UPS for this site.
+	var RENEW_AT = 45 * 60000;
+	var tokenSeen = "", tokenAtMs = 0, lastRenewTry = 0;
+	function tokenAge() {
+		var t = hasToken() ? session.gdrive.accessToken : "";
+		if (t !== tokenSeen) { tokenSeen = t; tokenAtMs = t ? Date.now() : 0; }
+		return tokenAtMs ? Date.now() - tokenAtMs : 0;
+	}
+	setInterval(function () {
+		if (!hasToken()) return;
+		if (tokenAge() > RENEW_AT && Date.now() - lastRenewTry > 120000) {
+			lastRenewTry = Date.now();
+			try { session.gdrive.requestAccessToken(); } catch (e) { lastError = "Drive renew failed: " + (e && e.message); }
+		}
+	}, 30000);
 	setTimeout(tick, 1500);
 	connectObs();
 	window.fpmAutoDrive = {
