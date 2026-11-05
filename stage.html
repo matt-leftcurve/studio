@@ -153,7 +153,7 @@
 			div.style.width = r[2] + "px"; div.style.height = r[3] + "px";
 		});
 		var t = roles.slice(1).map(function (role) { return role === "g1" ? tag(1) : tag(2); });
-		var want = "stage/retro-share.html?tiles=" + (roles.length - 1) + "&h1=" + encodeURIComponent(t[0] || "") + "&h2=" + encodeURIComponent(t[1] || "");
+		var want = "stage/retro-share.html?tiles=" + (roles.length - 1) + "&h1=" + encodeURIComponent(t[0] || "") + "&h2=" + encodeURIComponent(t[1] || "") + "&b=" + encodeURIComponent(q.get("b") || "");
 		if (overlays.share.getAttribute("data-src") !== want) {
 			overlays.share.setAttribute("data-src", want);
 			overlays.share.src = want;
@@ -218,7 +218,9 @@
 	Object.keys(LAYOUTS).forEach(function (name) {
 		var ov = document.createElement("iframe");
 		ov.className = "overlay";
-		ov.src = LAYOUTS[name].overlay + (oq.toString() ? "?" + oq.toString() : "");
+		// &b=<build>: overlay files are fetched fresh per deploy (GH Pages max-age=600 kept serving a stale
+		// overlay to a freshly reloaded page, 2026-11-05)
+		ov.src = LAYOUTS[name].overlay + "?" + (oq.toString() ? oq.toString() + "&" : "") + "b=" + encodeURIComponent(q.get("b") || "");
 		stage.appendChild(ov);
 		overlays[name] = ov;
 	});
