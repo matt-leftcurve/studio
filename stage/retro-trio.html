@@ -94,6 +94,11 @@ const GUEST2_HANDLE=__q.get("h2")||"";
 document.getElementById("handle1").textContent=HOST_HANDLE;
 document.getElementById("handle2").textContent=GUEST_HANDLE;
 document.getElementById("handle3").textContent=GUEST2_HANDLE;
+// 2026-11-05: tags are guest NAMES unless an @handle was given; the X badge only makes sense for a handle
+[["tag2",GUEST_HANDLE],["tag3",GUEST2_HANDLE]].forEach(function(x){
+  if(!x[1]) document.getElementById(x[0]).style.display="none";
+  else if(x[1].charAt(0)!=="@") document.querySelector("#"+x[0]+" .icon").style.display="none";
+});
 const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
 const DEXTOKENS=[];
 const state={};

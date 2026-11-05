@@ -88,6 +88,9 @@ const HOST_HANDLE="@FullPortMatt";
 const __q=new URLSearchParams(location.search);const GUEST_HANDLE=__q.get("h1")||"";
 document.getElementById("handleL").textContent=HOST_HANDLE;
 document.getElementById("handleR").textContent=GUEST_HANDLE;
+// 2026-11-05: tags are guest NAMES unless an @handle was given; the X badge only makes sense for a handle
+if(!GUEST_HANDLE) document.getElementById("tagR").style.display="none";
+else if(GUEST_HANDLE.charAt(0)!=="@") document.querySelector("#tagR .icon").style.display="none";
 const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
 const DEXTOKENS=[];
 const state={};

@@ -108,9 +108,9 @@
 	});
 
 	// Guest rectangles only when there's a guest in them (2026-11-05): an empty seat never shows a blank box,
-	// and in the tile layouts (solo PiP, intro strip) a seat whose guest has no live video hides too, so Solo
-	// with nobody around is just Matt. Main layouts (sbs/trio/share) keep a seated-but-reconnecting guest's
-	// slot to avoid the layout jumping during hiccups.
+	// and in the tile layouts (solo PiP, intro strip, share tiles) a seat whose guest has no live video hides
+	// too, so Solo with nobody around is just Matt. Full-size layouts (sbs/trio) keep a seated-but-reconnecting
+	// guest's slot to avoid the big panels jumping during hiccups.
 	function liveVideo(frame) {
 		try {
 			var rp = frame.contentWindow.session.rpcs;
@@ -125,11 +125,34 @@
 		if (role === "host") return true;
 		if (panelSelf[role]) return true; // own tile: local video drawn by the embedding page
 		if (!panelFrames[role]) return false; // no seat id: never show a blank box
-		if (current === "solo_pip" || current === "intro") return liveVideo(panelFrames[role]);
+		if (current === "solo_pip" || current === "intro" || current === "share") return liveVideo(panelFrames[role]);
 		return true;
+	}
+	// Share layout tiles compact upward (2026-11-05, Matt): just Matt when he's alone, Matt + one tile with a
+	// single guest, three tiles with two. Tags re-map to the tile ORDER so the name stays next to the person.
+	var SHARE_SLOTS = [[1395, 165, 525, 262], [1395, 439, 525, 262], [1395, 713, 525, 262]];
+	function layoutShare() {
+		var roles = ["host"];
+		["g1", "g2"].forEach(function (role) { if (guestPanelVisible(role)) roles.push(role); });
+		["host", "g1", "g2"].forEach(function (role) {
+			var div = panels[role];
+			var idx = roles.indexOf(role);
+			if (idx === -1) { div.style.display = "none"; return; }
+			var r = SHARE_SLOTS[idx];
+			div.style.display = "block";
+			div.style.left = r[0] + "px"; div.style.top = r[1] + "px";
+			div.style.width = r[2] + "px"; div.style.height = r[3] + "px";
+		});
+		var t = roles.slice(1).map(function (role) { return role === "g1" ? tag(1) : tag(2); });
+		var want = "stage/retro-share.html?h1=" + encodeURIComponent(t[0] || "") + "&h2=" + encodeURIComponent(t[1] || "");
+		if (overlays.share.getAttribute("data-src") !== want) {
+			overlays.share.setAttribute("data-src", want);
+			overlays.share.src = want;
+		}
 	}
 	function applyGuestVisibility() {
 		if (!current || !LAYOUTS[current]) return;
+		if (current === "share") { layoutShare(); return; }
 		["g1", "g2"].forEach(function (role) {
 			if (!LAYOUTS[current].panels[role]) return; // layout already hides it
 			panels[role].style.display = guestPanelVisible(role) ? "block" : "none";
@@ -175,9 +198,10 @@
 	var sharer = "";
 	var sharerHint = ""; // role, from the embedding page's {fpmStage:{sharer:<id>}}
 
-	// Tags: prefer the seated guests' NAMES (n1/n2, from their join labels); explicit h1/h2 @handles are the
-	// legacy fallback, so an old-style URL (h1/h2 only) still renders. The overlays keep their h1/h2 params.
-	function tag(n) { return q.get("n" + n) || q.get("h" + n) || ""; }
+	// Tags: the seated guests' NAMES (n1/n2, from their join labels; the host page keeps them with the person).
+	// An explicit h1/h2 @handle, when present, overrides (old-style URLs still render; the host page clears a
+	// seat's handle when a different person takes it). The overlays keep their h1/h2 params.
+	function tag(n) { return q.get("h" + n) || q.get("n" + n) || ""; }
 	var oq = new URLSearchParams();
 	if (tag(1)) oq.set("h1", tag(1));
 	if (tag(2)) oq.set("h2", tag(2));
@@ -216,7 +240,8 @@
 		});
 		var sr = L.panels.share;
 		sharePanel.style.display = sr ? "block" : "none";
-		sharePanel.style.background = SELF && q.get(sharer) === SELF ? "transparent" : "#000";
+		var sharerId = sharer === "host" ? HOST : q.get(sharer);
+		sharePanel.style.background = SELF && sharerId === SELF ? "transparent" : "#000";
 		if (sr) {
 			sharePanel.style.left = sr[0] + "px";
 			sharePanel.style.top = sr[1] + "px";
@@ -225,11 +250,7 @@
 			Object.keys(shareFrames).forEach(function (role) {
 				shareFrames[role].style.display = role === sharer ? "block" : "none";
 			});
-			var want = "stage/retro-share.html?h1=" + encodeURIComponent(tag(1)) + "&h2=" + encodeURIComponent(tag(2));
-			if (overlays.share.getAttribute("data-src") !== want) {
-				overlays.share.setAttribute("data-src", want);
-				overlays.share.src = want;
-			}
+			// tile positions + the share overlay (slot-ordered tags) are owned by layoutShare(), called below
 		}
 		Object.keys(overlays).forEach(function (n) {
 			overlays[n].style.display = n === name ? "block" : "none";

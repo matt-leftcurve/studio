@@ -122,8 +122,9 @@
 		q.set("dpr", params.get("viewdpr") || "1"); // 2 made guest laptops CPU-bound (software encodes, +delay), 2026-11-04
 		if (!isHost) {
 			q.set("mode", "view"); // Matt's panel via a scene view of FPMHOST
-			q.set("self", me);
 		}
+		q.set("self", me); // own panel (and own screen share) transparent in the stage page: drawn locally below
+		q.set("room", params.get("room") || "fpmshow"); // the stage page's scene views join OUR room (its default is fpmshow)
 		var hk = q.toString();
 		if (hk !== hostStageKey) {
 			// (re)load only when the seats change; layout changes go by postMessage so nobody reconnects
@@ -136,14 +137,35 @@
 		overlayKey = "";
 		var Lp = LAYOUTS[name].panels;
 		var local = {}; // role -> stream id, for panels that show OUR OWN media locally
-		if (isHost) local.host = me;
-		else {
+		if (isHost) {
+			local.host = me;
+			if (name === "share" && state.sharer === me) { local.share = me + ":s"; } // host's own share: local, not a round trip
+		} else {
 			if (state.g1 === me && Lp.g1) local.g1 = me;
 			if (state.g2 === me && Lp.g2) local.g2 = me;
 			if (name === "share" && state.sharer === me) { local.share = me + ":s"; }
 		}
+		// Share tiles compact upward (2026-11-05): mirror stage.html's layoutShare() so OUR locally drawn tile
+		// lands in the same slot as the transparent window the stage page leaves for it.
+		var shareSlots = null;
+		if (name === "share") {
+			var SHARE_TILES = [[1395, 165, 525, 262], [1395, 439, 525, 262], [1395, 713, 525, 262]];
+			shareSlots = { host: SHARE_TILES[0] };
+			var sp = 1;
+			["g1", "g2"].forEach(function (gr) {
+				var sid = state[gr];
+				if (!sid) return;
+				var present = sid === me;
+				if (!present) {
+					var sm0 = streamFor(sid);
+					present = !!(sm0 && sm0.getVideoTracks && sm0.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; }));
+				}
+				if (present) shareSlots[gr] = SHARE_TILES[sp++];
+			});
+		}
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role], r = Lp[role];
+			if (shareSlots && (role === "host" || role === "g1" || role === "g2")) r = shareSlots[role] || null;
 			if (!local[role] || !r) { v.style.display = "none"; return; }
 			v.style.display = "block";
 			v.style.left = r[0] + "px"; v.style.top = r[1] + "px"; v.style.width = r[2] + "px"; v.style.height = r[3] + "px";

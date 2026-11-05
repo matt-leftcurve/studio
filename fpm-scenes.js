@@ -224,8 +224,13 @@
 			var id = r && r.streamID ? String(r.streamID) : "";
 			if (!/^fpm[A-Za-z0-9]{6,}$/.test(id)) continue; // guests only: "fpm" + id (case-sensitive: FPM* host feeds and ":s" shares excluded)
 			out[id] = (r.label || id);
+			hasLabel[id] = !!r.label;
 		}
 		return out;
+	}
+	var hasLabel = {}; // id -> the room label has arrived (until then the guest shows as their id)
+	function nameFor(id) {
+		return id && hasLabel[id] ? labels[id] || "" : "";
 	}
 	var labels = {};
 	var AUTO_KEY = "fpmAutoAdmit";
@@ -257,7 +262,12 @@
 	var alertRow = document.createElement("div");
 	alertRow.className = "fpm-alerts";
 	alertRow.style.cssText = "position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:99998;display:flex;flex-direction:column;gap:6px;align-items:center;font:600 13px system-ui,-apple-system,sans-serif";
-	function mountAlerts() { if (document.body && !alertRow.isConnected) document.body.appendChild(alertRow); }
+	function mountAlerts() {
+		if (document.body && !alertRow.isConnected) document.body.appendChild(alertRow);
+		// under the bar's real bottom edge: the bar wraps to two rows on laptops, and a card hidden behind it
+		// (bar z-index is higher) cannot be clicked
+		try { if (bar.isConnected) alertRow.style.top = Math.round(bar.getBoundingClientRect().bottom + 8) + "px"; } catch (e) {}
+	}
 	function card(bg) {
 		var c = document.createElement("div");
 		c.style.cssText = "display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:" + bg + ";color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.45)";
@@ -272,6 +282,7 @@
 	}
 	var waitCards = {}; // waiting guest id -> {card, name, btn}
 	function updateWaiting(waiting, here, hasFree) {
+		if (alertRow.isConnected) mountAlerts();
 		Object.keys(waitCards).forEach(function (id) {
 			if (waiting.indexOf(id) === -1) { waitCards[id].card.remove(); delete waitCards[id]; }
 		});
@@ -290,10 +301,10 @@
 					if (!seat) return;
 					var ch = {};
 					ch[seat] = id;
-					ch[seat === "g1" ? "n1" : "n2"] = labels[id] || "";
+					ch[seat === "g1" ? "n1" : "n2"] = nameFor(id);
 					ch[seat === "g1" ? "h1" : "h2"] = ""; // old @handle belonged to the seat's previous guest
 					stageInfo[seat] = id;
-					stageInfo[seat === "g1" ? "n1" : "n2"] = labels[id] || "";
+					stageInfo[seat === "g1" ? "n1" : "n2"] = nameFor(id);
 					stageInfo[seat === "g1" ? "h1" : "h2"] = "";
 					setStage(ch);
 					broadcast();
@@ -328,7 +339,9 @@
 		["g1", "g2"].forEach(function (seat, i) {
 			var nk = i ? "n2" : "n1";
 			if (res.seats[seat] !== stageInfo[seat]) { stageInfo[seat] = res.seats[seat]; ch[seat] = res.seats[seat]; }
-			if ((res.names[seat] || "") !== (stageInfo[nk] || "")) { stageInfo[nk] = res.names[seat] || ""; ch[nk] = stageInfo[nk]; }
+			var nn = res.names[seat] || "";
+			if (nn === res.seats[seat] && !hasLabel[nn]) nn = stageInfo[nk] || ""; // label not here yet: keep what the stage shows
+			if (nn !== (stageInfo[nk] || "")) { stageInfo[nk] = nn; ch[nk] = nn; }
 		});
 		// a DIFFERENT person in a seat makes its old @handle wrong; rejoins (same person) keep theirs
 		res.admitted.forEach(function (a) {

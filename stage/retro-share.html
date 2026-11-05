@@ -97,6 +97,7 @@ document.getElementById("handleL").textContent=HOST_HANDLE;
 [["handleR","tagR",__q.get("h1")||""],["handleR2","tagR2",__q.get("h2")||""]].forEach(function(x){
   document.getElementById(x[0]).textContent=x[2];
   if(!x[2]) document.getElementById(x[1]).style.display="none";
+  else if(x[2].charAt(0)!=="@") document.querySelector("#"+x[1]+" .icon").style.display="none"; // a NAME, not an X handle
 });
 const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
 const DEXTOKENS=[];
