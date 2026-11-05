@@ -21,8 +21,8 @@
   .frame{position:absolute;box-sizing:border-box;
     border:2px solid rgba(201,161,95,0.45);pointer-events:none;
     box-shadow:inset 0 0 28px rgba(0,0,0,0.4);}
-  #frameS{left:0;top:165px;width:1380px;height:810px;} #frameL{left:1395px;top:165px;width:525px;height:397px;} #frameR{left:1395px;top:578px;width:525px;height:397px;}
-  #gut2{position:absolute;left:1395px;top:562px;width:525px;height:16px;background:rgba(10,20,30,.9);}
+  #frameS{left:0;top:165px;width:1380px;height:810px;} #frameL{left:1395px;top:165px;width:525px;height:262px;} #frameR{left:1395px;top:439px;width:525px;height:262px;} #frameR2{left:1395px;top:713px;width:525px;height:262px;}
+  #gut2{position:absolute;left:1395px;top:427px;width:525px;height:12px;background:rgba(10,20,30,.9);} #gut3{position:absolute;left:1395px;top:701px;width:525px;height:12px;background:rgba(10,20,30,.9);}
   /* social handles (same as solo overlay) */
   #social{position:absolute;right:70px;top:32px;text-align:right;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
   #social .row{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:9px;}
@@ -63,7 +63,7 @@
     justify-content:center;box-shadow:0 0 10px rgba(127,212,193,0.35);}
   .nametag .handle{color:#9fe0d0;font-size:21px;font-weight:700;letter-spacing:1px;
     text-shadow:0 0 8px rgba(127,212,193,0.4);}
-  #tagL{left:1410px;top:505px;} #tagR{left:1410px;top:913px;}
+  #tagL{left:1410px;top:370px;} #tagR{left:1410px;top:644px;} #tagR2{left:1410px;top:918px;}
 </style>
 </head>
 <body>
@@ -74,12 +74,15 @@
   <div id="gut2"></div>
   <div class="frame" id="frameL"></div>
   <div class="frame" id="frameR"></div>
+  <div id="gut3"></div>
+  <div class="frame" id="frameR2"></div>
   <div id="social">
     <div class="row"><div class="icon">𝕏</div><div class="handle">@fullportmatt</div></div>
     <div class="row"><div class="icon yt">▶</div><div class="handle">youtube.com/@fullportmatt_zh</div></div>
   </div>
   <div class="nametag" id="tagL"><div class="icon">&#120143;</div><div class="handle" id="handleL"></div></div>
   <div class="nametag" id="tagR"><div class="icon">&#120143;</div><div class="handle" id="handleR"></div></div>
+  <div class="nametag" id="tagR2"><div class="icon">&#120143;</div><div class="handle" id="handleR2"></div></div>
   <div id="ticker"></div>
   <div class="scan" id="scantop"></div>
   <div class="scan" id="scanbot"></div>
@@ -88,9 +91,13 @@
 
 // panel name tags — edit per guest episode
 const HOST_HANDLE="@FullPortMatt";
-const __q=new URLSearchParams(location.search);const GUEST_HANDLE=__q.get("h1")||"";
+// 2026-11-04: share layout = screen + three tiles (Matt, guest 1, guest 2); empty handle hides its tag
+const __q=new URLSearchParams(location.search);
 document.getElementById("handleL").textContent=HOST_HANDLE;
-document.getElementById("handleR").textContent=GUEST_HANDLE;
+[["handleR","tagR",__q.get("h1")||""],["handleR2","tagR2",__q.get("h2")||""]].forEach(function(x){
+  document.getElementById(x[0]).textContent=x[2];
+  if(!x[2]) document.getElementById(x[1]).style.display="none";
+});
 const COINS=[["bitcoin","BTC"],["ethereum","ETH"],["zcash","ZEC"],["near","NEAR"],["pearl-2","PEARL"]];
 const DEXTOKENS=[];
 const state={};

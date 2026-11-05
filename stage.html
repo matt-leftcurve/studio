@@ -38,7 +38,8 @@
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
 		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
 		// share: screen large, Matt top-right, the SHARING guest's camera bottom-right ("sharer" is g1 or g2)
-		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } },
+		// share: screen large + three stacked tiles: Matt, guest 1, guest 2 (2026-11-04; was screen + Matt + sharer only)
+		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 262], g1: [1395, 439, 525, 262], g2: [1395, 713, 525, 262] } },
 		// Guest/host views only (OBS never shows stage.html in these scenes): intro screen with everyone in a tile
 		// strip, and the solo scene with the guests in small tiles so they still see themselves/each other.
 		intro: { overlay: "stage/intro.html", under: true, panels: { host: [340, 775, 400, 225], g1: [760, 775, 400, 225], g2: [1180, 775, 400, 225] } },
@@ -186,7 +187,7 @@
 			Object.keys(shareFrames).forEach(function (role) {
 				shareFrames[role].style.display = role === sharer ? "block" : "none";
 			});
-			var want = "stage/retro-share.html?h1=" + encodeURIComponent((sharer === "g2" ? q.get("h2") : q.get("h1")) || "");
+			var want = "stage/retro-share.html?h1=" + encodeURIComponent(q.get("h1") || "") + "&h2=" + encodeURIComponent(q.get("h2") || "");
 			if (overlays.share.getAttribute("data-src") !== want) {
 				overlays.share.setAttribute("data-src", want);
 				overlays.share.src = want;

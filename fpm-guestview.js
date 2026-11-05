@@ -20,7 +20,7 @@
 		solo: { overlay: "stage/retro-solo.html", panels: { host: [0, 0, 1920, 1080] } },
 		sbs: { overlay: "stage/retro-sbs.html", panels: { host: [0, 165, 950, 810], g1: [970, 165, 950, 810] } },
 		trio: { overlay: "stage/retro-trio.html", panels: { host: [0, 165, 630, 810], g1: [645, 165, 630, 810], g2: [1290, 165, 630, 810] } },
-		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 397], sharer: [1395, 578, 525, 397] } },
+		share: { overlay: "stage/retro-share.html", panels: { share: [0, 165, 1380, 810], host: [1395, 165, 525, 262], g1: [1395, 439, 525, 262], g2: [1395, 713, 525, 262] } },
 		show: { overlay: "", panels: { show: [0, 0, 1920, 1080] } },
 		intro: { overlay: "", panels: { host: [340, 775, 400, 225], g1: [760, 775, 400, 225], g2: [1180, 775, 400, 225] } },
 		solo_pip: { overlay: "", panels: { host: [0, 0, 1920, 1080], g1: [1530, 200, 360, 203], g2: [1530, 418, 360, 203] } }
@@ -140,7 +140,7 @@
 		else {
 			if (state.g1 === me && Lp.g1) local.g1 = me;
 			if (state.g2 === me && Lp.g2) local.g2 = me;
-			if (name === "share" && state.sharer === me) { local.sharer = me; local.share = me + ":s"; }
+			if (name === "share" && state.sharer === me) { local.share = me + ":s"; }
 		}
 		Object.keys(vids).forEach(function (role) {
 			var v = vids[role], r = Lp[role];
