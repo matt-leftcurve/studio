@@ -1,5 +1,5 @@
 // FULLPORTMATT guest stage view (guest pages: lowercase "fpm…" push IDs).
-// The host page broadcasts {fpmStage:{scene, layout, g1, g2, h1, h2}} over VDO's generic data channel
+// The host page broadcasts {fpmStage:{scene, layout, g1, g2, h1, h2, n1, n2, sharer}} over VDO's generic data channel
 // (session.sendGenericData). This draws the same layout as OBS's stage page from video the browser already
 // has: Matt from his direct camera feed (FPMHOST), other guests from their direct connections, and THIS guest
 // from its own local camera (zero delay). Scenes the page can't rebuild (layout "") show the "Show" program
@@ -114,7 +114,7 @@
 		showFrame.style.display = "none";
 		hostStage.style.display = "block";
 		var q = new URLSearchParams();
-		["g1", "g2", "h1", "h2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
+		["g1", "g2", "h1", "h2", "n1", "n2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
 		q.set("maxh", params.get("viewmaxh") || "720"); // people's views: 720p ...
 		q.set("vbr", params.get("viewbitrate") || "1500"); // ... at <=1.5 Mbps, so a weak guest uplink favours the OBS copy
 		q.set("vcodec", params.get("viewcodec") || "h264");

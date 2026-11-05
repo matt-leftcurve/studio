@@ -103,15 +103,16 @@
 		panels[role] = div;
 	});
 
-	// Screen shares: VDO publishes a guest's share as "<guestID>:s". Pull both seats' shares (idle until a share
-	// exists, no cost) into one share panel; whichever has live video is the one shown.
+	// Screen shares: VDO publishes a share as "<ID>:s" — guests (g1/g2) and the HOST (FPMHOST:s, 2026-11-05)
+	// alike. Pull all three (idle until a share exists, no cost) into one share panel; the "sharer" role picks
+	// which one shows.
 	var sharePanel = document.createElement("div");
 	sharePanel.className = "panel";
 	sharePanel.style.background = "#000";
 	stage.appendChild(sharePanel);
 	var shareFrames = {};
-	["g1", "g2"].forEach(function (role) {
-		var id = q.get(role);
+	["host", "g1", "g2"].forEach(function (role) {
+		var id = role === "host" ? HOST : q.get(role);
 		if (!id || (SELF && id === SELF)) return;
 		var f = document.createElement("iframe");
 		f.allow = "autoplay";
@@ -140,9 +141,12 @@
 	var sharer = "";
 	var sharerHint = ""; // role, from the embedding page's {fpmStage:{sharer:<id>}}
 
+	// Tags: prefer the seated guests' NAMES (n1/n2, from their join labels); explicit h1/h2 @handles are the
+	// legacy fallback, so an old-style URL (h1/h2 only) still renders. The overlays keep their h1/h2 params.
+	function tag(n) { return q.get("n" + n) || q.get("h" + n) || ""; }
 	var oq = new URLSearchParams();
-	if (q.get("h1")) oq.set("h1", q.get("h1"));
-	if (q.get("h2")) oq.set("h2", q.get("h2"));
+	if (tag(1)) oq.set("h1", tag(1));
+	if (tag(2)) oq.set("h2", tag(2));
 	var overlays = {};
 	Object.keys(LAYOUTS).forEach(function (name) {
 		var ov = document.createElement("iframe");
@@ -187,7 +191,7 @@
 			Object.keys(shareFrames).forEach(function (role) {
 				shareFrames[role].style.display = role === sharer ? "block" : "none";
 			});
-			var want = "stage/retro-share.html?h1=" + encodeURIComponent(q.get("h1") || "") + "&h2=" + encodeURIComponent(q.get("h2") || "");
+			var want = "stage/retro-share.html?h1=" + encodeURIComponent(tag(1)) + "&h2=" + encodeURIComponent(tag(2));
 			if (overlays.share.getAttribute("data-src") !== want) {
 				overlays.share.setAttribute("data-src", want);
 				overlays.share.src = want;
@@ -240,7 +244,7 @@
 		var d = ev.data;
 		if (d && d.fpmStage && "sharer" in d.fpmStage) {
 			var sid = d.fpmStage.sharer || "";
-			sharerHint = sid && sid === q.get("g1") ? "g1" : sid && sid === q.get("g2") ? "g2" : "";
+			sharerHint = sid === HOST ? "host" : sid && sid === q.get("g1") ? "g1" : sid && sid === q.get("g2") ? "g2" : "";
 		}
 		if (d && d.fpmStage && d.fpmStage.layout) setLayout(d.fpmStage.layout);
 	});
