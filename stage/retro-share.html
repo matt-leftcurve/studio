@@ -112,12 +112,10 @@ document.getElementById("handleL").textContent=HOST_HANDLE;
     if(i<n){
       var y=top+i*(h+gap);
       fr.style.top=y+"px";fr.style.height=h+"px";
-      // tag scales with its tile (2026-11-05, Matt): thirds 1.0x (legacy), halves 1.25x, full column 1.6x,
-      // and hugs the tile's bottom edge (57px inset at 1x, scaled accordingly)
-      var f=n===1?1.6:n===2?1.25:1;
-      tg.style.transformOrigin="left top";
-      tg.style.transform=f===1?"":"scale("+f+")";
-      tg.style.top=(y+h-Math.round(57*f))+"px";
+      // tag keeps ONE size whatever the tile size (Matt, 2026-11-05 — reverted same-day scaling experiment)
+      // and hugs its tile's bottom edge (same 57px inset as the original fixed grid)
+      tg.style.transform="";
+      tg.style.top=(y+h-57)+"px";
       if(gu)gu.style.top=(y-gap)+"px";
     }else{
       fr.style.display="none";
