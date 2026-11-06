@@ -12,36 +12,31 @@ assert.deepStrictEqual(L.camBounds(2), {x:2790,y:330,w:1050,h:524});
 assert.ok(L.PANELS.solo.host && L.PANELS.trio.g2 && L.OVERLAYS.share, "panel/overlay tables present");
 assert.strictEqual(L.TAG_INSET, 57);
 console.log("fpm-layouts: all tests pass");
-// ===== Onstage model (SPEC v2, Matt 2026-11-05) =====
+// ===== Onstage model (SPEC v2, Matt 2026-11-05; share rule v2: row-above-share for >3) =====
 assert.deepStrictEqual(L.rowSplit(1), [1]); assert.deepStrictEqual(L.rowSplit(3), [3]);
 assert.deepStrictEqual(L.rowSplit(4), [2,2]); assert.deepStrictEqual(L.rowSplit(5), [3,2]);
-assert.deepStrictEqual(L.rowSplit(6), [3,3]); assert.deepStrictEqual(L.rowSplit(9), [5,4]); assert.deepStrictEqual(L.rowSplit(10), [5,5]);
-assert.deepStrictEqual(L.colSplit(4), [4]); assert.deepStrictEqual(L.colSplit(5), [3,2]); assert.deepStrictEqual(L.colSplit(10), [5,5]);
-// solo grid = full stage band
+assert.deepStrictEqual(L.rowSplit(6), [3,3]); assert.deepStrictEqual(L.rowSplit(9), [5,4]);
+// solo grid = full stage band; clamp at 9
 assert.deepStrictEqual(L.gridLayout(1), [[0,165,1920,810]]);
-// 2 people = the old SBS split (952/953 ≈ halves with 15 gap)
-{const g=L.gridLayout(2); assert.strictEqual(g.length,2); assert.strictEqual(g[0][1],165); assert.strictEqual(g[0][3],810); assert.ok(Math.abs(g[0][2]-952)<=2);}
-// 5 people: 3 top, 2 bottom, bottom centered, uniform tile size
-{const g=L.gridLayout(5); assert.strictEqual(g.length,5);
- assert.strictEqual(g[0][1],165); assert.strictEqual(g[3][1],165+Math.round((810-15)/2)+15||g[3][1],g[3][1]);
- assert.ok(g[3][0]>g[0][0], "bottom row centered/indented");
- assert.strictEqual(g[0][2],g[4][2], "uniform width");}
-// grid tiles never overlap and stay in the band
-for (const n of [1,2,3,4,5,6,7,8,9,10]) {
-  const g=L.gridLayout(n);
-  assert.strictEqual(g.length,n);
-  for (const t of g){ assert.ok(t[0]>=0&&t[1]>=165&&t[0]+t[2]<=1921&&t[1]+t[3]<=976, `tile in band n=${n}`); }
+assert.strictEqual(L.gridLayout(12).length, 9, "clamped to 9");
+// 2 people ~ SBS halves
+{const g=L.gridLayout(2); assert.strictEqual(g.length,2); assert.strictEqual(g[0][3],810); assert.ok(Math.abs(g[0][2]-952)<=2);}
+// 5 people: 3 top 2 bottom, bottom centered, uniform width
+{const g=L.gridLayout(5); assert.strictEqual(g.length,5); assert.ok(g[3][0]>g[0][0]); assert.strictEqual(g[0][2],g[4][2]);}
+// all counts: tiles inside the band, no overlap with share rules
+for (const n of [1,2,3,4,5,6,7,8,9]) {
+  for (const t2 of L.gridLayout(n)) assert.ok(t2[0]>=0&&t2[1]>=165&&t2[0]+t2[2]<=1921&&t2[1]+t2[3]<=976, `grid in band n=${n}`);
 }
-// share: 1..3 people reproduce the legacy column exactly
-{const s3=L.shareLayout(3); assert.deepStrictEqual(s3.tiles, L.shareSlots(3)); assert.deepStrictEqual(s3.share.slice(0,2),[0,165]); assert.strictEqual(s3.share[2],1380);}
+// share <=3 people: legacy column pixel-for-pixel
+{const s3=L.shareLayout(3); assert.deepStrictEqual(s3.tiles, L.shareSlots(3)); assert.deepStrictEqual(s3.share,[0,165,1380,810]);}
 {const s1=L.shareLayout(1); assert.deepStrictEqual(s1.tiles, L.shareSlots(1));}
-// share with 5 people: 2 columns, 3 left + 2 right, share panel narrower but >= 1000px
-{const s5=L.shareLayout(5); assert.strictEqual(s5.tiles.length,5);
- const leftX=s5.tiles[0][0]; const rightX=s5.tiles[3][0];
- assert.ok(rightX>leftX, "two columns");
- assert.strictEqual(s5.tiles.filter(t=>t[0]===leftX).length,3,"3 on the left");
- assert.ok(s5.share[2]>=1000, "share panel stays usable: "+s5.share[2]);}
-// share 10: 5+5
-{const s10=L.shareLayout(10); assert.strictEqual(s10.tiles.length,10);
- const xs=[...new Set(s10.tiles.map(t=>t[0]))]; assert.strictEqual(xs.length,2);}
-console.log("fpm-layouts: Onstage model tests pass");
+// share >3 people: ONE ROW above, share full width below
+for (const n of [4,5,7,9]) {
+  const sh=L.shareLayout(n);
+  assert.strictEqual(sh.tiles.length,n);
+  assert.ok(sh.tiles.every(t2=>t2[1]===165), `single row n=${n}`);
+  assert.strictEqual(sh.share[0],0); assert.strictEqual(sh.share[2],1920, "share full width");
+  assert.ok(sh.share[1]>165 && sh.share[1]+sh.share[3]<=976, "share below row, inside band");
+  assert.ok(sh.share[3]>=400, `share keeps height n=${n}: ${sh.share[3]}`);
+}
+console.log("fpm-layouts: Onstage v2 tests pass");

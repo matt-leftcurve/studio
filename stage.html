@@ -7,325 +7,228 @@
 <style>
 	html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 	#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
-	.panel { position: absolute; overflow: hidden; background: transparent; display: none; }
+	.panel { position: absolute; overflow: hidden; background: #0e1a2b; display: none; }
+	.panel.clear { background: transparent; }
 	.panel iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
-	.panel.empty { background: #0e1a2b; }
-	.overlay { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; pointer-events: none; z-index: 10; background: transparent; display: none; }
+	#sharepanel { position: absolute; overflow: hidden; background: #000; display: none; }
+	#sharepanel iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; }
+	.tileframe { position: absolute; box-sizing: border-box; border: 2px solid rgba(201,161,95,0.45);
+		box-shadow: inset 0 0 28px rgba(0,0,0,0.4); pointer-events: none; z-index: 12; display: none; }
+	.nametag { position: absolute; display: none; align-items: center; gap: 8px; z-index: 13; pointer-events: none;
+		background: rgba(10,22,30,0.88); border: 2px solid rgba(201,161,95,0.55); border-radius: 6px;
+		padding: 5px 12px 5px 8px; font-family: "Helvetica Neue",Helvetica,Arial,sans-serif; }
+	.nametag .icon { font-weight: 800; font-size: 17px; color: #0b1a20; background: #7fd4c1; border-radius: 5px;
+		width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+	.nametag .nm { color: #9fe0d0; font-size: 19px; font-weight: 700; letter-spacing: 1px;
+		text-shadow: 0 0 8px rgba(127,212,193,0.4); white-space: nowrap; max-width: 300px; overflow: hidden; }
+	.overlay { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; pointer-events: none;
+		z-index: 10; background: transparent; display: none; }
 </style>
 </head>
 <body>
 <div id="stage"></div>
 <script src="fpm-layouts.js"></script>
 <script>
-// FULLPORTMATT stage page. One definition of each guest layout.
-// In OBS: ONE browser source (1920x1080, stretched to the canvas) shared by every "Stage - …" scene. OBS tells
-// the page which scene is live (window.obsstudio / obsSceneChanged) and the page switches layout itself:
-// no reload, guests stay connected, each guest is pulled once (full-quality scene view by stream ID).
-// Matt's panel is transparent in OBS (native camera layer underneath).
-// Params: g1, g2 = guest stream IDs; h1, h2 = @handles; room (fpmshow); layout = default when OBS gives no
-// scene; mode=obs (default) | view (draws Matt's panel from the host feed too and scales to the window);
-// audio=1 lets guest audio play (OBS routes it monitor-only, like the old per-guest sources).
+// FULLPORTMATT stage v2 (2026-11-05, SPEC v2 "Onstage"): ONE definition of the stage for OBS, host
+// and guests. The cast (onstage guests, ordered, Matt implicit first) arrives via ?cast=<JSON
+// [[id,name],...]>; layout = fpmLayouts.gridLayout / shareLayout over people = 1 + cast.length.
+// Share is a STATE (sharer id via postMessage from people's pages, or detected from the share
+// streams in OBS), not a scene. Tile frames + name tags are drawn HERE for any cast size; the band
+// art (logo/bands/ticker/social) is the single retro-solo overlay. Legacy g1/g2/h/n URLs still
+// render (mapped to a cast) during migration. Cast changes arrive as a new URL (the host page
+// rewrites the OBS input URL / people's pages reload the iframe) — reconnect-on-change, by design.
 (function () {
 	var q = new URLSearchParams(location.search);
-	var LGEO = window.fpmLayouts; // single source of truth for geometry (fpm-layouts.js, SPEC I2)
+	var LGEO = window.fpmLayouts;
 	var ROOM = q.get("room") || "fpmshow";
-	var MODE = q.get("mode") || "obs";
+	var MODE = q.get("mode") || "obs"; // obs = native camera under a transparent host tile; view = draw host too
 	var AUDIO = q.get("audio") === "1";
 	var HOST = q.get("host") || "FPMHOST";
-	// self=<id>: embedded in that guest's own page; their panel (and their own screen share) stays transparent so
-	// the page can show its LOCAL camera/share underneath (zero delay, no self-view over the network).
-	var SELF = q.get("self") || "";
-	// Geometry comes from fpm-layouts.js (SPEC I2); only per-layout FLAGS live here.
-	// share tiles are positioned dynamically by layoutShare() via LGEO.shareSlots; its panels
-	// entry carries only the share rect (plus host/g1/g2 markers so panels show in that layout).
-	function L_(name, extra) {
-		var def = { overlay: LGEO.OVERLAYS[name], panels: {} };
-		Object.keys(LGEO.PANELS[name] || {}).forEach(function (k) { def.panels[k] = LGEO.PANELS[name][k].slice(); });
-		Object.keys(extra || {}).forEach(function (k) { def[k] = extra[k]; });
-		return def;
+	var SELF = q.get("self") || ""; // this person's own id: their tile (and own share) stays transparent
+	var BUILD = q.get("b") || "";
+	var HOSTTAG = q.get("hosttag") || "@FullPortMatt";
+
+	function parseCast() {
+		try {
+			if (q.get("cast")) {
+				return JSON.parse(q.get("cast")).slice(0, 8).map(function (m) { return [String(m[0]), String(m[1] || "")]; });
+			}
+		} catch (e) {}
+		var legacy = [];
+		if (q.get("g1")) legacy.push([q.get("g1"), q.get("n1") || q.get("h1") || ""]);
+		if (q.get("g2")) legacy.push([q.get("g2"), q.get("n2") || q.get("h2") || ""]);
+		return legacy;
 	}
-	var LAYOUTS = {
-		solo: L_("solo"),
-		sbs: L_("sbs"),
-		trio: L_("trio"),
-		share: L_("share"),
-		intro: L_("intro", { under: true }),
-		solo_pip: L_("solo_pip", { tiles: ["g1", "g2"] })
-	};
-	// share layout: host/g1/g2 panels exist (placed by layoutShare), seeded from the 3-slot grid
-	LGEO.shareSlots(3).forEach(function (r, i) { LAYOUTS.share.panels[["host", "g1", "g2"][i]] = r; });
-	var stage = document.getElementById("stage");
+	var cast = parseCast();
+	var people = [["__host", HOSTTAG]].concat(cast); // index 0 = Matt, always
 
 	function viewUrl(id) {
 		var u = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(ROOM) + "&cover&label=Full_Port_Matt&opusbitrate=128";
-		if (!AUDIO) {
-			u += "&noaudio";
-		}
-		// &dpr=N (guest/host views): request N x the panel's pixel size so small tiles stay sharp on screen
-		if (q.get("dpr")) {
-			u += "&dpr=" + encodeURIComponent(q.get("dpr"));
-		}
-		// &maxh=N (guest/host views): ask each sender for a FIXED N-line picture instead of panel-sized/1080p. Senders
-		// (guest laptops) software-encode one copy per viewer; 1080p copies made them CPU-bound and laggy in trio.
-		// OBS's stage view never sets this, so the stream keeps full quality.
-		if (q.get("maxh")) {
-			u += "&viewheight=" + encodeURIComponent(q.get("maxh"));
-			// people's views: never let VDO's "hidden scene" saver throttle a view (host page dropped Carol in and out
-			// while OBS and the laptop kept her, 2026-11-04)
-			u += "&nohiddensceneoptimization";
-		}
-		// &vcodec=h264 (guest/host views only): ask senders for H.264, which Macs/most PCs encode in HARDWARE; VP8 is
-		// always software. OBS's stage view never sets this (OBS's browser can't play H.264), so OBS stays VP8.
-		// &ice=<srflx|relay> (TEST ONLY): VDO icefilter = keep only that candidate type, i.e. never use the home LAN;
-		// simulates guests coming in over the internet when testing with devices in the same house.
-		if (q.get("ice")) {
-			u += "&icefilter=" + encodeURIComponent(q.get("ice"));
-		}
-		// &vbr=N kbps (guest/host views): cap what each sender spends on THIS viewer, so a guest on weak upload keeps
-		// most of it for the OBS stream copy. OBS's view never sets this.
-		if (q.get("vbr")) {
-			u += "&videobitrate=" + encodeURIComponent(q.get("vbr"));
-		}
-		if (q.get("vcodec")) {
-			u += "&codec=" + encodeURIComponent(q.get("vcodec"));
-		}
+		if (!AUDIO) u += "&noaudio";
+		if (q.get("dpr")) u += "&dpr=" + encodeURIComponent(q.get("dpr"));
+		if (q.get("maxh")) u += "&viewheight=" + encodeURIComponent(q.get("maxh")) + "&nohiddensceneoptimization";
+		if (q.get("ice")) u += "&icefilter=" + encodeURIComponent(q.get("ice"));
+		if (q.get("vbr")) u += "&videobitrate=" + encodeURIComponent(q.get("vbr"));
+		if (q.get("vcodec")) u += "&codec=" + encodeURIComponent(q.get("vcodec"));
 		return u;
 	}
 
-	// Panels are created once and only moved/shown/hidden on layout change (no reconnects).
-	var panels = {};
-	var panelFrames = {}; // role -> iframe (absent for empty seats and the self panel)
-	var panelSelf = {}; // role -> true when this panel is the embedding guest's own (local video underneath)
-	["host", "g1", "g2"].forEach(function (role) {
+	var stage = document.getElementById("stage");
+
+	// one panel + frame + tag per person
+	var panels = [], frames = [], tags = [];
+	people.forEach(function (p, i) {
+		var id = p[0], name = p[1];
 		var div = document.createElement("div");
 		div.className = "panel";
-		var id = role === "host" ? (MODE === "obs" ? "" : HOST) : q.get(role) || "";
-		var isSelf = !!SELF && id === SELF;
-		if (isSelf) id = "";
-		panelSelf[role] = isSelf;
-		if (id) {
+		var remoteId = id === "__host" ? (MODE === "obs" ? "" : HOST) : id;
+		var isSelf = !!SELF && remoteId === SELF;
+		if (id === "__host" && MODE === "obs") div.className += " clear"; // native camera layer underneath
+		if (isSelf) { remoteId = ""; div.className += " clear"; } // own camera drawn locally by the embedding page
+		if (remoteId) {
 			var f = document.createElement("iframe");
 			f.allow = "autoplay";
-			f.src = viewUrl(id);
+			f.src = viewUrl(remoteId);
 			div.appendChild(f);
-			panelFrames[role] = f;
-		} else if (role !== "host" && !isSelf) {
-			div.className += " empty";
 		}
 		stage.appendChild(div);
-		panels[role] = div;
+		panels.push(div);
+		var fr = document.createElement("div");
+		fr.className = "tileframe";
+		stage.appendChild(fr);
+		frames.push(fr);
+		var tg = document.createElement("div");
+		tg.className = "nametag";
+		var showBadge = name.charAt(0) === "@";
+		tg.innerHTML = (showBadge ? '<div class="icon">&#120143;</div>' : "") + '<div class="nm"></div>';
+		tg.querySelector(".nm").textContent = name;
+		if (!name) tg.style.visibility = "hidden";
+		stage.appendChild(tg);
+		tags.push(tg);
 	});
 
-	// Guest rectangles only when there's a guest in them (2026-11-05): an empty seat never shows a blank box,
-	// and in the tile layouts (solo PiP, intro strip, share tiles) a seat whose guest has no live video hides
-	// too, so Solo with nobody around is just Matt. Full-size layouts (sbs/trio) keep a seated-but-reconnecting
-	// guest's slot to avoid the big panels jumping during hiccups.
-	function liveVideo(frame) {
-		try {
-			var rp = frame.contentWindow.session.rpcs;
-			for (var U in rp) {
-				var st = rp[U] && (rp[U].streamSrc || (rp[U].videoElement && rp[U].videoElement.srcObject));
-				if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) return true;
-			}
-		} catch (e) {}
-		return false;
-	}
-	var psHint = null; // per-seat presence from the embedding page (people's views; OBS never gets it)
-	function guestPanelVisible(role) {
-		if (role === "host") return true;
-		if (panelSelf[role]) return true; // own tile first: a guest always sees themselves
-		if (psHint && (role in psHint)) return !!psHint[role]; // host-page presence truth (SPEC: one presence signal in people's views)
-		if (!panelFrames[role]) return false; // no seat id: never show a blank box
-		if (current === "solo_pip" || current === "intro" || current === "share") return liveVideo(panelFrames[role]);
-		return true;
-	}
-	// Share layout tiles split the column among whoever is PRESENT (2026-11-05, Matt): alone = Matt's camera
-	// takes the full height; one guest = two half-height tiles; two = three (identical to the old fixed grid).
-	// Tags re-map to the tile ORDER so the name stays next to the person; the overlay gets ?tiles=N and draws
-	// matching frames.
-	function layoutShare() {
-		var roles = ["host"];
-		["g1", "g2"].forEach(function (role) { if (guestPanelVisible(role)) roles.push(role); });
-		var slots = LGEO.shareSlots(roles.length);
-		["host", "g1", "g2"].forEach(function (role) {
-			var div = panels[role];
-			var idx = roles.indexOf(role);
-			if (idx === -1) { div.style.display = "none"; return; }
-			var r = slots[idx];
-			div.style.display = "block";
-			div.style.left = r[0] + "px"; div.style.top = r[1] + "px";
-			div.style.width = r[2] + "px"; div.style.height = r[3] + "px";
-		});
-		var t = roles.slice(1).map(function (role) { return role === "g1" ? tag(1) : tag(2); });
-		var want = "stage/retro-share.html?tiles=" + (roles.length - 1) + "&h1=" + encodeURIComponent(t[0] || "") + "&h2=" + encodeURIComponent(t[1] || "") + "&b=" + encodeURIComponent(q.get("b") || "");
-		if (overlays.share.getAttribute("data-src") !== want) {
-			overlays.share.setAttribute("data-src", want);
-			overlays.share.src = want;
-		}
-	}
-	function applyGuestVisibility() {
-		if (!current || !LAYOUTS[current]) return;
-		if (current === "share") { layoutShare(); return; }
-		["g1", "g2"].forEach(function (role) {
-			if (!LAYOUTS[current].panels[role]) return; // layout already hides it
-			panels[role].style.display = guestPanelVisible(role) ? "block" : "none";
-		});
-	}
-	setInterval(applyGuestVisibility, 1000);
-
-	// Screen shares: VDO publishes a share as "<ID>:s" — guests (g1/g2) and the HOST (FPMHOST:s, 2026-11-05)
-	// alike. Pull all three (idle until a share exists, no cost) into one share panel; the "sharer" role picks
-	// which one shows.
+	// share panel: one visible slot; hidden idle view per possible sharer (host + each cast member)
 	var sharePanel = document.createElement("div");
-	sharePanel.className = "panel";
-	sharePanel.style.background = "#000";
+	sharePanel.id = "sharepanel";
 	stage.appendChild(sharePanel);
-	var shareFrames = {};
-	["host", "g1", "g2"].forEach(function (role) {
-		var id = role === "host" ? HOST : q.get(role);
-		if (!id || (SELF && id === SELF)) return;
+	var shareFrames = {}; // sharer id -> iframe
+	people.forEach(function (p) {
+		var sid = p[0] === "__host" ? HOST : p[0];
+		if (SELF && sid === SELF) return; // own share is drawn locally by the embedding page
 		var f = document.createElement("iframe");
 		f.allow = "autoplay";
-		f.src = viewUrl(id + ":s").replace("&cover", "");
-		f.style.display = "none";
+		f.src = viewUrl(sid + ":s").replace("&cover", "");
 		sharePanel.appendChild(f);
-		shareFrames[role] = f;
+		shareFrames[sid] = f;
 	});
+
+	// overlays: band art always (retro-solo = logo/bands/ticker/social), intro art for the intro layout
+	function ovSrc(p) { return p + "?b=" + encodeURIComponent(BUILD); }
+	var bandOv = document.createElement("iframe");
+	bandOv.className = "overlay";
+	bandOv.src = ovSrc("stage/retro-solo.html");
+	stage.appendChild(bandOv);
+	var introOv = document.createElement("iframe");
+	introOv.className = "overlay";
+	introOv.src = ovSrc("stage/intro.html");
+	stage.appendChild(introOv);
+
+	var current = "";   // "onstage" | "intro"
+	var sharer = "";    // sharing person's stream id ("FPMHOST" or fpm…), "" = no share
+	var sharerHint = null; // from the embedding page; OBS falls back to live detection
+
 	function liveShare() {
-		var roles = Object.keys(shareFrames);
-		for (var i = 0; i < roles.length; i++) {
+		for (var sid in shareFrames) {
 			try {
-				var w = shareFrames[roles[i]].contentWindow;
-				var rp = w && w.session && w.session.rpcs;
-				if (!rp) continue;
+				var rp = shareFrames[sid].contentWindow.session.rpcs;
 				for (var U in rp) {
 					var st = rp[U] && (rp[U].streamSrc || (rp[U].videoElement && rp[U].videoElement.srcObject));
-					if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) {
-						return roles[i];
-					}
+					if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) return sid;
 				}
 			} catch (e) {}
 		}
 		return "";
 	}
-	var sharer = "";
-	var sharerHint = ""; // role, from the embedding page's {fpmStage:{sharer:<id>}}
 
-	// Tags: the seated guests' NAMES (n1/n2, from their join labels; the host page keeps them with the person).
-	// An explicit h1/h2 @handle, when present, overrides (old-style URLs still render; the host page clears a
-	// seat's handle when a different person takes it). The overlays keep their h1/h2 params.
-	function tag(n) { return q.get("h" + n) || q.get("n" + n) || ""; }
-	var oq = new URLSearchParams();
-	if (tag(1)) oq.set("h1", tag(1));
-	if (tag(2)) oq.set("h2", tag(2));
-	var overlays = {};
-	Object.keys(LAYOUTS).forEach(function (name) {
-		var ov = document.createElement("iframe");
-		ov.className = "overlay";
-		// &b=<build>: overlay files are fetched fresh per deploy (GH Pages max-age=600 kept serving a stale
-		// overlay to a freshly reloaded page, 2026-11-05)
-		ov.src = LAYOUTS[name].overlay + "?" + (oq.toString() ? oq.toString() + "&" : "") + "b=" + encodeURIComponent(q.get("b") || "");
-		stage.appendChild(ov);
-		overlays[name] = ov;
-	});
+	function place(el, r, show) {
+		el.style.display = show ? "block" : "none";
+		if (!show) return;
+		el.style.left = r[0] + "px"; el.style.top = r[1] + "px";
+		el.style.width = r[2] + "px"; el.style.height = r[3] + "px";
+	}
 
-	var current = "";
-	function setLayout(name) {
-		if (!LAYOUTS[name] || name === current) {
-			return;
+	function apply() {
+		var n = people.length;
+		var intro = current === "intro";
+		var rects, shareRect = null;
+		if (intro) {
+			rects = LGEO.introStrip(n);
+		} else if (sharer) {
+			var sl = LGEO.shareLayout(n);
+			rects = sl.tiles; shareRect = sl.share;
+		} else {
+			rects = LGEO.gridLayout(n);
 		}
-		current = name;
-		var L = LAYOUTS[name];
-		Object.keys(panels).forEach(function (role) {
-			var r = L.panels[role] || (name === "share" && role === sharer ? L.panels.sharer : null);
-			var div = panels[role];
-			if (!r) {
-				div.style.display = "none";
-				return;
+		people.forEach(function (p, i) {
+			place(panels[i], rects[i], true);
+			panels[i].style.zIndex = intro ? "20" : "";
+			panels[i].style.borderRadius = intro ? "10px" : "";
+			place(frames[i], rects[i], !intro);
+			var tg = tags[i];
+			if (intro) { tg.style.display = "none"; }
+			else {
+				tg.style.display = "flex";
+				tg.style.left = (rects[i][0] + 14) + "px";
+				tg.style.top = (rects[i][1] + rects[i][3] - 44) + "px";
 			}
-			div.style.display = "block";
-			var isTile = L.under || (L.tiles && L.tiles.indexOf(role) !== -1);
-			div.style.zIndex = isTile ? "20" : "";
-			div.style.borderRadius = isTile ? "10px" : "";
-			div.style.boxShadow = isTile ? "0 0 0 3px #7fd4c1, 0 8px 24px rgba(0,0,0,.6)" : "";
-			div.style.left = r[0] + "px";
-			div.style.top = r[1] + "px";
-			div.style.width = r[2] + "px";
-			div.style.height = r[3] + "px";
 		});
-		var sr = L.panels.share;
-		sharePanel.style.display = sr ? "block" : "none";
-		var sharerId = sharer === "host" ? HOST : q.get(sharer);
-		sharePanel.style.background = SELF && sharerId === SELF ? "transparent" : "#000";
-		if (sr) {
-			sharePanel.style.left = sr[0] + "px";
-			sharePanel.style.top = sr[1] + "px";
-			sharePanel.style.width = sr[2] + "px";
-			sharePanel.style.height = sr[3] + "px";
-			Object.keys(shareFrames).forEach(function (role) {
-				shareFrames[role].style.display = role === sharer ? "block" : "none";
-			});
-			// tile positions + the share overlay (slot-ordered tags) are owned by layoutShare(), called below
+		if (shareRect) {
+			place(sharePanel, shareRect, true);
+			var selfShare = SELF && sharer === SELF;
+			sharePanel.style.background = selfShare ? "transparent" : "#000";
+			for (var sid in shareFrames) shareFrames[sid].style.display = sid === sharer ? "block" : "none";
+		} else {
+			sharePanel.style.display = "none";
 		}
-		Object.keys(overlays).forEach(function (n) {
-			overlays[n].style.display = n === name ? "block" : "none";
-			overlays[n].style.zIndex = LAYOUTS[n].under ? "0" : "";
-		});
-		applyGuestVisibility();
-		document.title = "FULLPORTMATT stage · " + name;
+		bandOv.style.display = intro ? "none" : "block";
+		introOv.style.display = intro ? "block" : "none";
+		document.title = "FULLPORTMATT stage · " + (intro ? "intro" : sharer ? "share" : "grid") + " · " + n;
+	}
+
+	function setLayout(name) {
+		if (name !== "intro") name = "onstage";
+		if (name === current) return;
+		current = name;
+		apply();
 	}
 
 	function layoutForScene(sceneName) {
 		var s = String(sceneName || "").toLowerCase();
-		if (s.indexOf("share") !== -1) return "share";
-		if (s.indexOf("trio") !== -1) return "trio";
-		if (s.indexOf("sbs") !== -1) return "sbs";
-		if (s.indexOf("solo") !== -1) return "solo";
-		return "";
+		if (s.indexOf("starting") !== -1 || s.indexOf("intro") !== -1) return "intro";
+		return "onstage"; // Onstage + any legacy name
 	}
 
-	setLayout(q.get("layout") || "trio");
+	setLayout(q.get("layout") === "intro" ? "intro" : "onstage");
 	setInterval(function () {
-		var now = sharerHint || liveShare() || sharer || "g1";
-		if (now !== sharer) {
-			sharer = now;
-			if (current === "share") {
-				var keep = current;
-				current = "";
-				setLayout(keep);
-			}
-		}
-	}, 1000);
+		var now = sharerHint !== null ? sharerHint : liveShare();
+		if (now !== sharer) { sharer = now; apply(); }
+	}, 700);
 
-	// OBS integration: follow the live scene.
 	if (window.obsstudio) {
-		try {
-			window.obsstudio.getCurrentScene(function (scene) {
-				var l = layoutForScene(scene && scene.name);
-				if (l) setLayout(l);
-			});
-		} catch (e) {}
-		window.addEventListener("obsSceneChanged", function (ev) {
-			var l = layoutForScene(ev.detail && ev.detail.name);
-			if (l) setLayout(l);
-		});
+		try { window.obsstudio.getCurrentScene(function (scene) { setLayout(layoutForScene(scene && scene.name)); }); } catch (e) {}
+		window.addEventListener("obsSceneChanged", function (ev) { setLayout(layoutForScene(ev.detail && ev.detail.name)); });
 	}
-	// Also accept postMessage({fpmStage:{layout}}) for non-OBS embeds (guest/host views).
 	window.addEventListener("message", function (ev) {
 		var d = ev.data;
-		if (d && d.fpmStage && "sharer" in d.fpmStage) {
-			var sid = d.fpmStage.sharer || "";
-			sharerHint = sid === HOST ? "host" : sid && sid === q.get("g1") ? "g1" : sid && sid === q.get("g2") ? "g2" : "";
-		}
-		if (d && d.fpmStage && "ps" in d.fpmStage) psHint = d.fpmStage.ps || null;
-		if (d && d.fpmStage && d.fpmStage.layout) setLayout(d.fpmStage.layout);
+		if (!d || !d.fpmStage) return;
+		if ("sharer" in d.fpmStage) sharerHint = d.fpmStage.sharer || "";
+		if (d.fpmStage.layout) setLayout(d.fpmStage.layout === "intro" ? "intro" : "onstage");
+		apply();
 	});
-	window.fpmStage = { setLayout: setLayout, layout: function () { return current; } };
+	window.fpmStage = { layout: function () { return current; }, cast: function () { return cast.slice(); }, apply: apply };
 
 	function fit() {
-		if (MODE === "obs") {
-			return;
-		}
+		if (MODE === "obs") return;
 		var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
 		stage.style.transform = "scale(" + s + ")";
 	}

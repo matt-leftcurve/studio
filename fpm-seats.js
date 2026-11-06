@@ -1,112 +1,89 @@
-// FULLPORTMATT: stage seat planner (2026-11-05). Pure functions, no DOM: fpm-scenes.js feeds it the roster and
-// applies the result; the same file runs under node for a unit test. Parse-safe (no ?. / ??).
+// FULLPORTMATT: onstage/backstage planner (v2, 2026-11-05 — SPEC v2 Onstage model; v1 two-seat
+// planner replaced the same day). Pure functions, no DOM: fpm-scenes.js feeds the roster and applies
+// the result; runs under node for tests (tests/fpm-seats.test.mjs). Parse-safe (no ?. / ??).
 //
-// Seats are the OBS "Stage" input params g1/g2 (guest stream IDs); n1/n2 are the seated guests' names (room labels).
-// Rules:
-//   - a joiner whose name matches the name of a seated guest who is NOT here gets that seat back at once (rejoin);
-//   - otherwise, with auto-admit, a joiner takes the first free seat; without it, they wait for "Add to stage";
-//   - a seat is free when empty or when its guest has been gone longer than STALE_MS.
+// Model: ONE ordered onstage list of [id, name] (Matt is implicit, always first on stage, never in
+// this list; max MAX_GUESTS entries). Everyone else connected is backstage. Rules:
+//   - an onstage member's name refreshes from the roster while they are present;
+//   - an onstage member gone longer than STALE_MS is REMOVED (short blips keep their tile);
+//   - a newcomer whose name matches an onstage member gone <= STALE_MS replaces them IN PLACE
+//     (device switch / reload keeps the spot, no click);
+//   - with autoAdmit, backstage guests are appended in join order while slots remain;
+//   - otherwise backstage guests wait for an explicit admit() ("Bring Onstage").
 (function (root) {
 	"use strict";
 	var STALE_MS = 60000;
-	var SEATS = ["g1", "g2"];
+	var MAX_GUESTS = 8; // + Matt = 9 people
 
 	function norm(s) {
 		return String(s || "").trim().toLowerCase();
 	}
 
-	function copySeats(src) {
-		var out = {};
-		for (var i = 0; i < SEATS.length; i++) {
-			out[SEATS[i]] = src && src[SEATS[i]] ? String(src[SEATS[i]]) : "";
-		}
-		return out;
-	}
-
-	// Seats a NEW guest may take: empty, or the occupant has been gone > STALE_MS (lastSeen missing = never seen).
-	function freeSeats(seats, here, lastSeen, now) {
+	function copyCast(cast) {
 		var out = [];
-		here = here || {};
-		lastSeen = lastSeen || {};
-		for (var i = 0; i < SEATS.length; i++) {
-			var cur = seats[SEATS[i]];
-			if (!cur || (!here[cur] && now - (lastSeen[cur] || 0) > STALE_MS)) {
-				out.push(SEATS[i]);
-			}
-		}
+		for (var i = 0; i < (cast || []).length; i++) out.push([String(cast[i][0]), String(cast[i][1] || "")]);
 		return out;
 	}
 
-	// Input: { seats:{g1,g2}, names:{g1,g2}, here:{id:name}, firstSeen:{id:ms}, lastSeen:{id:ms}, now:ms, autoAdmit:bool }
-	// Output: { seats, names, rejoined:[{id,seat}], admitted:[{id,seat}], waiting:[id], free:[seat] }
+	// Input: { onstage:[[id,name],...], here:{id:name}, firstSeen:{id:ms}, lastSeen:{id:ms}, now:ms, autoAdmit:bool }
+	// Output: { onstage, backstage:[id], removed:[[id,name]], rejoined:[{oldId,newId,name}], admitted:[id] }
 	function plan(input) {
-		var seats = copySeats(input.seats);
-		var names = copySeats(input.names);
+		var cast = copyCast(input.onstage);
 		var here = input.here || {};
 		var firstSeen = input.firstSeen || {};
+		var lastSeen = input.lastSeen || {};
 		var now = input.now || 0;
-		var rejoined = [];
-		var admitted = [];
-		var i, seat, cur;
+		var removed = [], rejoined = [], admitted = [];
+		var i;
 
-		// the name follows the person: a seated guest who is here refreshes their seat's name
-		for (i = 0; i < SEATS.length; i++) {
-			seat = SEATS[i];
-			if (seats[seat] && here[seats[seat]]) {
-				names[seat] = here[seats[seat]];
+		// 1. refresh names for present members; drop members gone > STALE_MS
+		var kept = [];
+		for (i = 0; i < cast.length; i++) {
+			var id = cast[i][0];
+			if (here[id]) {
+				kept.push([id, here[id]]);
+			} else if (now - (lastSeen[id] || 0) <= STALE_MS) {
+				kept.push(cast[i]); // short blip: hold the tile
+			} else {
+				removed.push(cast[i]);
 			}
 		}
+		cast = kept;
 
-		var waiting = Object.keys(here).filter(function (id) {
-			return seats.g1 !== id && seats.g2 !== id;
-		});
+		var onIds = {};
+		for (i = 0; i < cast.length; i++) onIds[cast[i][0]] = true;
+		var waiting = Object.keys(here).filter(function (id) { return !onIds[id]; });
 		waiting.sort(function (a, b) {
 			var d = (firstSeen[a] || 0) - (firstSeen[b] || 0);
 			return d !== 0 ? d : a < b ? -1 : a > b ? 1 : 0;
 		});
 
-		// 1. rejoin by name: same person, new stream ID (new device / cleared storage) -> same seat, no admit
-		// click — but only within STALE_MS of the occupant's disappearance (2026-11-05, Matt: someone who
-		// LEFT and comes back later must be asked again; only short blips/device switches are seamless)
-		var lastSeen = input.lastSeen || {};
+		// 2. device-switch: newcomer's name matches an onstage member who is absent (gone <= STALE_MS)
 		var still = [];
 		for (var w = 0; w < waiting.length; w++) {
-			var id = waiting[w];
-			var took = "";
-			if (norm(here[id])) {
-				for (i = 0; i < SEATS.length && !took; i++) {
-					seat = SEATS[i];
-					cur = seats[seat];
-					if (!cur || here[cur]) {
-						continue; // empty, or its guest is present
-					}
-					if (now - (lastSeen[cur] || 0) > STALE_MS) {
-						continue; // occupant long gone: successor must be admitted, not auto-seated
-					}
-					if (norm(names[seat]) === norm(here[id])) {
-						took = seat;
-					}
+			var nid = waiting[w], took = -1;
+			if (norm(here[nid])) {
+				for (i = 0; i < cast.length && took < 0; i++) {
+					if (!here[cast[i][0]] && norm(cast[i][1]) === norm(here[nid])) took = i;
 				}
 			}
-			if (took) {
-				seats[took] = id;
-				names[took] = here[id];
-				rejoined.push({ id: id, seat: took });
+			if (took >= 0) {
+				rejoined.push({ oldId: cast[took][0], newId: nid, name: here[nid] });
+				cast[took] = [nid, here[nid]];
+				onIds[nid] = true;
 			} else {
-				still.push(id);
+				still.push(nid);
 			}
 		}
 		waiting = still;
 
-		// 2. auto-admit (optional): first free seat, in join order
+		// 3. auto-admit (optional): append in join order while guest slots remain
 		if (input.autoAdmit) {
 			still = [];
 			for (w = 0; w < waiting.length; w++) {
-				var free = freeSeats(seats, here, input.lastSeen, now);
-				if (free.length) {
-					seats[free[0]] = waiting[w];
-					names[free[0]] = here[waiting[w]];
-					admitted.push({ id: waiting[w], seat: free[0] });
+				if (cast.length < MAX_GUESTS) {
+					cast.push([waiting[w], here[waiting[w]]]);
+					admitted.push(waiting[w]);
 				} else {
 					still.push(waiting[w]);
 				}
@@ -114,24 +91,24 @@
 			waiting = still;
 		}
 
-		return { seats: seats, names: names, rejoined: rejoined, admitted: admitted, waiting: waiting, free: freeSeats(seats, here, input.lastSeen, now) };
+		return { onstage: cast, backstage: waiting, removed: removed, rejoined: rejoined, admitted: admitted };
 	}
 
-	// "Add to stage": first free seat for this guest, or "" when both seats are taken.
-	function admit(input, id) {
-		var free = freeSeats(copySeats(input.seats), input.here, input.lastSeen, input.now || 0);
-		return free.length ? free[0] : "";
+	// "Bring Onstage": append if room; returns the new cast (unchanged when full or already on).
+	function admit(cast, id, name) {
+		var out = copyCast(cast);
+		for (var i = 0; i < out.length; i++) if (out[i][0] === id) return out;
+		if (out.length >= MAX_GUESTS) return out;
+		out.push([String(id), String(name || "")]);
+		return out;
 	}
 
-	// "swap positions": g1 <-> g2, names travel with their guests.
-	function swap(seats, names) {
-		var s = copySeats(seats), n = copySeats(names);
-		return { seats: { g1: s.g2, g2: s.g1 }, names: { g1: n.g2, g2: n.g1 } };
+	// "Send Backstage": remove by id.
+	function demote(cast, id) {
+		return copyCast(cast).filter(function (m) { return m[0] !== id; });
 	}
 
-	var api = { plan: plan, admit: admit, swap: swap, freeSeats: freeSeats, STALE_MS: STALE_MS };
-	if (typeof module !== "undefined" && module.exports) {
-		module.exports = api;
-	}
+	var api = { plan: plan, admit: admit, demote: demote, STALE_MS: STALE_MS, MAX_GUESTS: MAX_GUESTS };
+	if (typeof module !== "undefined" && module.exports) module.exports = api;
 	root.fpmSeats = api;
 })(typeof window !== "undefined" ? window : this);

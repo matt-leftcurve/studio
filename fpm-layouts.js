@@ -46,14 +46,14 @@
 	var TAG_INSET = 57;
 
 	// ===== ONSTAGE MODEL (Matt, 2026-11-05 evening; SPEC v2) =====
-	// Two scenes only: Starting Soon + Onstage. people = Matt + onstage guests (1..10), Matt first.
+	// Two scenes only: Starting Soon + Onstage. people = Matt + onstage guests (1..9, max 8 guests), Matt first.
 	// No share: 1 row up to 3 people, else 2 rows (even: split evenly; odd: ceil on top — 5 -> 3+2).
-	// Share: screen + right-hand tile column(s): 1 column up to 4 people, else 2 columns
-	// (odd: ceil on the left — 5 -> 3 left + 2 right). Always the minimum rows/columns.
+	// Share, up to 3 people: screen left + the proven right-hand column. More than 3: EVERYONE in ONE ROW
+	// ABOVE the screenshare (Matt's rule 2026-11-05), share takes the full width below. Minimum rows always.
 	var STAGE_BAND = { top: 165, h: 810, w: 1920, gap: 15 };
 	function rowSplit(n) { if (n <= 3) return [n]; var a = Math.ceil(n / 2); return [a, n - a]; }
 	function gridLayout(n) {
-		n = Math.max(1, Math.min(10, n));
+		n = Math.max(1, Math.min(9, n));
 		var rows = rowSplit(n);
 		var rh = (STAGE_BAND.h - STAGE_BAND.gap * (rows.length - 1)) / rows.length;
 		var cols = Math.max.apply(null, rows);
@@ -67,27 +67,33 @@
 		}
 		return out;
 	}
-	function colSplit(n) { if (n <= 4) return [n]; var a = Math.ceil(n / 2); return [a, n - a]; }
-	// share mode: returns { share:[x,y,w,h], tiles:[[x,y,w,h],...] } — tiles in people order, column-major
-	// (fills the left column top-to-bottom, then the right). Column gap matches the legacy 12px grid so
-	// shareTiles(1..3) reproduces the proven column exactly.
+	// share mode: { share:[x,y,w,h], tiles:[[x,y,w,h],...] } — tiles in people order (Matt first).
+	// n<=3: screen left + right column (12px gaps: reproduces the proven legacy column pixel-for-pixel).
+	// n>=4: one row of everyone across the top (16:9-ish tiles), share full-width below.
 	function shareLayout(n) {
-		n = Math.max(1, Math.min(10, n));
-		var cols = colSplit(n);
-		var tileW = cols.length === 1 ? 525 : 400;
-		var sideW = cols.length * tileW + (cols.length - 1) * STAGE_BAND.gap;
-		var shareW = STAGE_BAND.w - sideW - STAGE_BAND.gap;
-		var tiles = [], x = STAGE_BAND.w - sideW;
-		for (var c = 0; c < cols.length; c++) {
-			var cnt = cols[c];
-			var th = (STAGE_BAND.h - 12 * (cnt - 1)) / cnt;
-			var y = STAGE_BAND.top;
-			for (var i = 0; i < cnt; i++) { tiles.push([Math.round(x), Math.round(y), tileW, Math.round(th)]); y += th + 12; }
-			x += tileW + STAGE_BAND.gap;
+		n = Math.max(1, Math.min(9, n));
+		if (n <= 3) {
+			var col = [], hC = (STAGE_BAND.h - 12 * (n - 1)) / n, yC = STAGE_BAND.top;
+			for (var i = 0; i < n; i++) { col.push([1395, Math.round(yC), 525, Math.round(hC)]); yC += hC + 12; }
+			return { share: [0, STAGE_BAND.top, 1380, STAGE_BAND.h], tiles: col };
 		}
-		return { share: [0, STAGE_BAND.top, Math.round(shareW), STAGE_BAND.h], tiles: tiles };
+		var tw = (STAGE_BAND.w - STAGE_BAND.gap * (n - 1)) / n;
+		var th = Math.round(tw * 9 / 16);
+		var tiles = [], x = 0;
+		for (var j = 0; j < n; j++) { tiles.push([Math.round(x), STAGE_BAND.top, Math.round(tw), th]); x += tw + STAGE_BAND.gap; }
+		return { share: [0, STAGE_BAND.top + th + STAGE_BAND.gap, STAGE_BAND.w, STAGE_BAND.h - th - STAGE_BAND.gap], tiles: tiles };
 	}
-	var api = { PANELS: PANELS, OVERLAYS: OVERLAYS, SHARE_COL: SHARE_COL, shareSlots: shareSlots, camBounds: camBounds, TAG_INSET: TAG_INSET, STAGE_BAND: STAGE_BAND, gridLayout: gridLayout, shareLayout: shareLayout, rowSplit: rowSplit, colSplit: colSplit };
+	// intro strip: everyone in one small bottom row, centered (Starting Soon tile strip)
+	function introStrip(n) {
+		n = Math.max(1, Math.min(9, n));
+		var tw = Math.min(400, Math.round((1920 - 15 * (n - 1)) / n));
+		var th = Math.round(tw * 9 / 16);
+		var x0 = Math.round((1920 - (n * tw + (n - 1) * 15)) / 2);
+		var out = [];
+		for (var i = 0; i < n; i++) out.push([x0 + i * (tw + 15), 1080 - th - 80, tw, th]);
+		return out;
+	}
+	var api = { PANELS: PANELS, OVERLAYS: OVERLAYS, SHARE_COL: SHARE_COL, shareSlots: shareSlots, camBounds: camBounds, TAG_INSET: TAG_INSET, STAGE_BAND: STAGE_BAND, gridLayout: gridLayout, shareLayout: shareLayout, rowSplit: rowSplit, introStrip: introStrip };
 	if (typeof module !== "undefined" && module.exports) module.exports = api;
 	root.fpmLayouts = api;
 })(typeof window !== "undefined" ? window : this);

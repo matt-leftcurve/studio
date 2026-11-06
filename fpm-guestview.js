@@ -1,42 +1,22 @@
-// FULLPORTMATT guest stage view (guest pages: lowercase "fpm…" push IDs).
-// The host page broadcasts {fpmStage:{scene, layout, g1, g2, h1, h2, n1, n2, sharer}} over VDO's generic data channel
-// (session.sendGenericData). This draws the same layout as OBS's stage page from video the browser already
-// has: Matt from his direct camera feed (FPMHOST), other guests from their direct connections, and THIS guest
-// from its own local camera (zero delay). Scenes the page can't rebuild (layout "") show the "Show" program
-// feed (FPMPROG) full-screen. Before any state arrives, the stock grid stays visible.
-// No new connections, no audio (VDO's own elements keep playing audio). Disable with &nostageview.
-// Parse-safe (no ?. / ??).
+// FULLPORTMATT guest stage view v2 (2026-11-05, SPEC v2 "Onstage"). Guest pages (lowercase "fpm…"
+// push IDs) and the host page (&stageview) draw the SAME stage as OBS via an embedded stage.html:
+// the host page broadcasts {fpmStage:{scene, layout, cast, sharer, music}} over VDO's generic data
+// channel. This file adds the LOCAL pieces on top: this person's own camera/share rendered with zero
+// delay in their own tile slot, and — when this guest is NOT in the cast — a small own-camera
+// preview with a grey "Backstage" chip. Parse-safe (no ?. / ??).
 (function () {
 	"use strict";
 	var params = new URLSearchParams(window.location.search);
 	var me = params.get("push") || "";
-	// Host page opts in with &stageview (push=FPMHOST): sees the same layout as guests. The host page excludes the
-	// OBS program feed (FPMPROG), so for non-stage scenes it falls back to the stock grid instead of the "show" view.
 	var isHost = /^FPMHOST$/.test(me) && params.has("stageview");
 	if ((!/^fpm/.test(me) && !isHost) || params.has("nostageview") || params.has("director") || params.has("scene")) {
 		return;
 	}
-	// Geometry from fpm-layouts.js (SPEC I2); guestview-only entries (show) stay literal.
 	var LGEO = window.fpmLayouts;
-	function L_(name) {
-		var p = {};
-		Object.keys(LGEO.PANELS[name] || {}).forEach(function (k) { p[k] = LGEO.PANELS[name][k].slice(); });
-		return { overlay: "", panels: p };
-	}
-	var LAYOUTS = {
-		solo: L_("solo"),
-		sbs: L_("sbs"),
-		trio: L_("trio"),
-		share: L_("share"),
-		show: { overlay: "", panels: { show: [0, 0, 1920, 1080] } },
-		intro: L_("intro"),
-		solo_pip: L_("solo_pip")
-	};
-	LGEO.shareSlots(3).forEach(function (r, i) { LAYOUTS.share.panels[["host", "g1", "g2"][i]] = r; });
 	var state = null;
-	var root = null, stage = null, overlay = null, overlayKey = "";
-	var vids = {}; // role -> <video>
-	var hostStage = null, hostStageKey = null, showFrame = null;
+	var root = null, stage = null, hostStage = null, hostStageKey = null;
+	var vids = {}; // "self" | "share" -> <video>
+	var backBadge = null;
 
 	function el(tag, css) {
 		var e = document.createElement(tag);
@@ -50,25 +30,20 @@
 		root.className = "fpm-guestview";
 		stage = el("div", "position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;");
 		root.appendChild(stage);
-		["host", "g1", "g2", "share", "sharer", "show"].forEach(function (role) {
+		["self", "share"].forEach(function (role) {
 			var v = el("video", "position:absolute;object-fit:cover;background:#0e1a2b;display:none;");
-			v.muted = true;
-			v.autoplay = true;
-			v.playsInline = true;
+			v.muted = true; v.autoplay = true; v.playsInline = true;
 			stage.appendChild(v);
 			vids[role] = v;
 		});
-		overlay = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;display:none;");
-		stage.appendChild(overlay);
-		// Other people come from the SAME stage page OBS uses (scene-type views: none of VDO's room-member caps, so the
-		// same quality as OBS). Our own panel is transparent there; our LOCAL camera/share <video> shows underneath.
+		backBadge = el("div", "position:absolute;display:none;z-index:40;background:rgba(90,96,106,0.92);color:#e8ebf0;" +
+			"font:700 15px system-ui,-apple-system,sans-serif;letter-spacing:1px;padding:4px 10px;border-radius:6px;");
+		backBadge.textContent = "BACKSTAGE";
+		stage.appendChild(backBadge);
+		// other people + overlays come from the SAME stage page OBS renders
 		hostStage = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:transparent;");
 		hostStage.allow = "autoplay";
 		stage.appendChild(hostStage);
-		// Non-stage scenes: guests see the OBS program feed, also as a scene view.
-		showFrame = el("iframe", "position:absolute;inset:0;width:1920px;height:1080px;border:0;pointer-events:none;background:#060b12;display:none;");
-		showFrame.allow = "autoplay";
-		stage.appendChild(showFrame);
 		document.body.appendChild(root);
 		window.addEventListener("resize", fit);
 		fit();
@@ -80,159 +55,99 @@
 		stage.style.transform = "translate(" + (window.innerWidth - 1920 * s) / 2 + "px," + (window.innerHeight - 1080 * s) / 2 + "px) scale(" + s + ")";
 	}
 
-	function streamFor(sid) {
-		if (!sid) return null;
-		if (sid === me + ":s") {
-			// our OWN screen share is local, not an incoming stream
-			var se = session.screenShareElement;
-			return (se && se.srcObject) || session.screenStream || null;
-		}
-		if (sid === me) {
-			return session.streamSrc || (session.videoElement && session.videoElement.srcObject) || null; // own camera, local
-		}
-		for (var UUID in session.rpcs) {
-			var r = session.rpcs[UUID];
-			if (r && r.streamID === sid) {
-				return r.streamSrc || (r.videoElement && r.videoElement.srcObject) || null;
-			}
-		}
-		return null;
+	function myIndex() {
+		if (isHost) return 0;
+		var cast = (state && state.cast) || [];
+		for (var i = 0; i < cast.length; i++) if (cast[i][0] === me) return i + 1;
+		return -1;
+	}
+
+	function myRects() {
+		var n = 1 + ((state && state.cast) ? state.cast.length : 0);
+		if (state && state.layout === "intro") return LGEO.introStrip(n);
+		if (state && state.sharer) return LGEO.shareLayout(n).tiles;
+		return LGEO.gridLayout(n);
+	}
+
+	function ownStreams() {
+		var cam = null, shr = null;
+		try { cam = session.streamSrc || (session.videoElement && session.videoElement.srcObject) || null; } catch (e) {}
+		try { shr = (session.screenShareElement && session.screenShareElement.srcObject) || session.screenStream || null; } catch (e) {}
+		return { cam: cam, shr: shr };
+	}
+
+	function setVid(role, rect, stream, contain) {
+		var v = vids[role];
+		if (!rect || !stream) { v.style.display = "none"; return; }
+		v.style.display = "block";
+		v.style.left = rect[0] + "px"; v.style.top = rect[1] + "px";
+		v.style.width = rect[2] + "px"; v.style.height = rect[3] + "px";
+		if (v.srcObject !== stream) { v.srcObject = stream; try { v.play(); } catch (e) {} }
+		v.style.objectFit = contain ? "contain" : "cover";
+		v.style.transform = contain ? "" : "scaleX(-1)";
+		v.style.background = contain ? "#000" : "#0e1a2b";
 	}
 
 	function render() {
-		if (!state || !window.session) return;
-		// Non-stage OBS scenes (Solo, TradingView, …): guests see Matt full-frame from the stage page. The OBS virtual
-		// camera "Show" feed (FPMPROG) is retired (2026-11-03): nothing needs the virtual camera any more.
-		var name = LAYOUTS[state.layout] ? state.layout : isHost ? "show" : "solo";
-		var L = LAYOUTS[name];
+		if (!state || !window.session || !LGEO) return;
 		build();
-		if (isHost) {
-			root.style.display = name === "show" ? "none" : "";
-			if (name === "show") { music(""); return; }
-		}
-		if (name === "show") {
-			hostStage.style.display = "none";
-			Object.keys(vids).forEach(function (role) { vids[role].style.display = "none"; });
-			overlay.style.display = "none";
-			overlayKey = "";
-			if (!showFrame.getAttribute("src")) showFrame.src = "./?view=" + encodeURIComponent(state.show || "FPMPROG") + "&scene&room=fpmshow&cover&noaudio&label=Show";
-			showFrame.style.display = "block";
-			return;
-		}
-		showFrame.style.display = "none";
-		hostStage.style.display = "block";
-		var q = new URLSearchParams();
-		["g1", "g2", "h1", "h2", "n1", "n2"].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
-		q.set("maxh", params.get("viewmaxh") || "720"); // people's views: 720p ...
-		q.set("vbr", params.get("viewbitrate") || "1500"); // ... at <=1.5 Mbps, so a weak guest uplink favours the OBS copy
-		q.set("vcodec", params.get("viewcodec") || "h264");
-		if (params.get("icefilter")) q.set("ice", params.get("icefilter")); // test mode: no LAN paths (see stage.html) // hardware-encoded copies for people; OBS stays VP8 // fixed 540p from each sender: cheap encodes, OBS unaffected
-		q.set("dpr", params.get("viewdpr") || "1"); // 2 made guest laptops CPU-bound (software encodes, +delay), 2026-11-04
-		if (!isHost) {
-			q.set("mode", "view"); // Matt's panel via a scene view of FPMHOST
-		}
-		q.set("self", me); // own panel (and own screen share) transparent in the stage page: drawn locally below
-		q.set("room", params.get("room") || "fpmshow"); // the stage page's scene views join OUR room (its default is fpmshow)
-		var hk = q.toString();
+		var known = state.layout === "intro" || state.layout === "onstage";
+		if (isHost && !known) { root.style.display = "none"; music(""); return; }
+		root.style.display = "";
+		var qp = new URLSearchParams();
+		qp.set("cast", JSON.stringify(state.cast || []));
+		qp.set("maxh", params.get("viewmaxh") || "720");
+		qp.set("vbr", params.get("viewbitrate") || "1500");
+		qp.set("vcodec", params.get("viewcodec") || "h264");
+		if (params.get("icefilter")) qp.set("ice", params.get("icefilter"));
+		qp.set("dpr", params.get("viewdpr") || "1");
+		qp.set("self", me);
+		qp.set("room", params.get("room") || "fpmshow");
+		if (!isHost) qp.set("mode", "view");
+		var hk = qp.toString();
 		if (hk !== hostStageKey) {
-			// (re)load only when the seats change; layout changes go by postMessage so nobody reconnects
 			hostStageKey = hk;
 			var bm = document.querySelector('meta[name="fpm-build"]');
-			hostStage.src = "./stage.html?" + hk + "&layout=" + name + "&b=" + encodeURIComponent(bm ? bm.content : Date.now()); // &b: never a stale cached stage page // no &audio: audio comes from the room connections
+			hostStage.src = "./stage.html?" + hk + "&b=" + encodeURIComponent(bm ? bm.content : Date.now());
 		}
-		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: name, sharer: state.sharer || "", ps: state.ps || null } }, "*"); } catch (e) {}
-		overlay.style.display = "none"; // the stage page draws the overlay
-		overlayKey = "";
-		var Lp = LAYOUTS[name].panels;
-		var local = {}; // role -> stream id, for panels that show OUR OWN media locally
-		if (isHost) {
-			local.host = me;
-			if (name === "share" && state.sharer === me) { local.share = me + ":s"; } // host's own share: local, not a round trip
-		} else {
-			if (state.g1 === me && Lp.g1) local.g1 = me;
-			if (state.g2 === me && Lp.g2) local.g2 = me;
-			if (name === "share" && state.sharer === me) { local.share = me + ":s"; }
-		}
-		// Share tiles compact upward (2026-11-05): mirror stage.html's layoutShare() so OUR locally drawn tile
-		// lands in the same slot as the transparent window the stage page leaves for it.
-		var shareSlots = null;
-		if (name === "share") {
-			var presentG = [];
-			["g1", "g2"].forEach(function (gr) {
-				var sid = state[gr];
-				if (!sid) return;
-				var present;
-				if (state.ps && gr in state.ps) present = !!state.ps[gr]; // host-page presence broadcast (room links are &novideo — video checks lie here)
-				else if (sid === me) present = true;
-				else {
-					var sm0 = streamFor(sid);
-					present = !!(sm0 && sm0.getVideoTracks && sm0.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; }));
-				}
-				if (present) presentG.push(gr);
-			});
-			// same column split as stage.html — both via fpm-layouts.js (SPEC I2)
-			var rects = LGEO.shareSlots(1 + presentG.length);
-			shareSlots = { host: rects[0] };
-			presentG.forEach(function (gr, i) { shareSlots[gr] = rects[i + 1]; });
-		}
-		Object.keys(vids).forEach(function (role) {
-			var v = vids[role], r = Lp[role];
-			if (shareSlots && (role === "host" || role === "g1" || role === "g2")) r = shareSlots[role] || null;
-			if (!local[role] || !r) { v.style.display = "none"; return; }
-			v.style.display = "block";
-			v.style.left = r[0] + "px"; v.style.top = r[1] + "px"; v.style.width = r[2] + "px"; v.style.height = r[3] + "px";
-			var sm = streamFor(local[role]);
-			if (sm && v.srcObject !== sm) { v.srcObject = sm; try { v.play(); } catch (e) {} }
-			v.style.transform = local[role] === me ? "scaleX(-1)" : "";
-			v.style.objectFit = role === "share" ? "contain" : "cover";
-			v.style.background = role === "share" ? "#000" : "#0e1a2b";
-			// small tiles (intro strip, solo PiP) sit ABOVE the stage page, whose intro background is opaque
-			var small = r[2] < 800 && (name === "intro" || name === "solo_pip"); // only where the stage background is opaque; elsewhere the overlay (handle tags) must stay on top
-			v.style.zIndex = small ? "30" : "";
-			v.style.borderRadius = small ? "10px" : "";
-			v.style.boxShadow = small ? "0 0 0 3px #7fd4c1, 0 8px 24px rgba(0,0,0,.6)" : "";
-		});
-		music(name === "intro" ? state.music : "");
-		return;
+		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: state.layout === "intro" ? "intro" : "onstage", sharer: state.sharer || "" } }, "*"); } catch (e) {}
 
-		var ids = { host: state.host || "FPMHOST", g1: state.g1, g2: state.g2, show: state.show || "FPMPROG", share: state.sharer ? state.sharer + ":s" : "", sharer: state.sharer || "" };
-		Object.keys(vids).forEach(function (role) {
-			var v = vids[role];
-			var r = L.panels[role];
-			if (!r) {
-				v.style.display = "none";
-				return;
-			}
-			v.style.display = "block";
-			v.style.left = r[0] + "px";
-			v.style.top = r[1] + "px";
-			v.style.width = r[2] + "px";
-			v.style.height = r[3] + "px";
-			var s = streamFor(ids[role]);
-			if (s && v.srcObject !== s) {
-				v.srcObject = s;
-				try { v.play(); } catch (e) {}
-			}
-			// mirror own camera like a normal self-view
-			v.style.transform = ids[role] === me ? "scaleX(-1)" : "";
-			v.style.objectFit = role === "share" ? "contain" : "cover";
-			v.style.background = role === "share" ? "#000" : "#0e1a2b";
-		});
-		var h1 = state.h1 || "", h2 = state.h2 || "";
-		if (name === "share") {
-			h1 = state.sharer && state.sharer === state.g2 ? state.h2 || "" : state.h1 || "";
-			h2 = "";
+		var idx = myIndex();
+		var rects = myRects();
+		var own = ownStreams();
+		var intro = state.layout === "intro";
+		if (idx >= 0) {
+			setVid("self", rects[idx], own.cam, false);
+			var small = intro;
+			vids.self.style.zIndex = small ? "30" : "";
+			vids.self.style.borderRadius = small ? "10px" : "";
+			vids.self.style.boxShadow = small ? "0 0 0 3px #7fd4c1, 0 8px 24px rgba(0,0,0,.6)" : "";
+			backBadge.style.display = "none";
+		} else if (!isHost) {
+			// BACKSTAGE: not on air — own preview bottom-right with the grey chip
+			var r = [1920 - 340, 1080 - 282, 320, 180];
+			setVid("self", r, own.cam, false);
+			vids.self.style.zIndex = "40";
+			vids.self.style.borderRadius = "10px";
+			vids.self.style.boxShadow = "0 0 0 3px #5a606a, 0 8px 24px rgba(0,0,0,.6)";
+			backBadge.style.display = "block";
+			backBadge.style.left = r[0] + "px";
+			backBadge.style.top = (r[1] - 34) + "px";
+		} else {
+			vids.self.style.display = "none";
+			backBadge.style.display = "none";
 		}
-		var key = L.overlay ? L.overlay + "?h1=" + encodeURIComponent(h1) + "&h2=" + encodeURIComponent(h2) : "";
-		if (key !== overlayKey) {
-			overlayKey = key;
-			overlay.style.display = key ? "block" : "none";
-			if (key) overlay.src = key;
+		// own share rendered locally (zero delay); others' shares come via the stage page
+		if (state.sharer && state.sharer === (isHost ? "FPMHOST" : me) && !intro) {
+			var n = 1 + ((state.cast) ? state.cast.length : 0);
+			setVid("share", LGEO.shareLayout(n).share, own.shr, true);
+		} else {
+			vids.share.style.display = "none";
 		}
+		music(intro ? state.music : "");
 	}
 
-	// Intro music for the people IN the room (host + guests), played locally and quietly. The audience gets the same
-	// track from OBS's "Intro Music" input. Volume via the YouTube iframe API (postMessage, enablejsapi=1).
+	// Intro music for the people in the room (audience gets it from OBS) — unchanged from v1.
 	var MUSIC_VOL = parseInt(params.get("musicvol") || "15", 10);
 	var musicFrame = null, musicNow = "", musicBtn = null;
 	function ytCmd(func, args) {
@@ -251,7 +166,6 @@
 			[300, 1200, 3000].forEach(function (t) { setTimeout(function () { ytCmd("setVolume", [MUSIC_VOL]); ytCmd("playVideo"); }, t); });
 		};
 		document.body.appendChild(musicFrame);
-		// autoplay with sound can be blocked: offer a one-tap fallback
 		musicBtn = el("button", "position:fixed;right:14px;top:14px;z-index:99999;border:0;border-radius:8px;padding:8px 12px;background:#1b2230;color:#d7dbe3;font:600 13px system-ui;cursor:pointer");
 		musicBtn.textContent = "♪ music not playing? tap";
 		musicBtn.onclick = function () { ytCmd("setVolume", [MUSIC_VOL]); ytCmd("playVideo"); musicBtn.remove(); musicBtn = null; };
@@ -267,21 +181,15 @@
 		var orig = session.gotGenericData;
 		session.gotGenericData = function (data, UUID) {
 			try {
-				if (data && data.fpmStage) {
-					state = data.fpmStage;
-					render();
-				}
+				if (data && data.fpmStage) { state = data.fpmStage; render(); }
 			} catch (e) {}
 			return orig.apply(this, arguments);
 		};
 		return true;
 	}
+	var t = setInterval(function () { if (hook()) clearInterval(t); }, 500);
 
-	var t = setInterval(function () {
-		if (hook()) clearInterval(t);
-	}, 500);
-	// Announce our own screen-share state to the room (host page switches OBS on this, instantly both ways;
-	// VDO keeps the ":s" stream connected and "live" after Stop, so the video alone can't tell).
+	// Announce own screen-share state (host page reflows the stage on this, instantly both ways).
 	var lastShare = null, lastSent = 0;
 	setInterval(function () {
 		if (isHost || !window.session || typeof session.sendGenericData !== "function") return;
@@ -293,9 +201,8 @@
 			try { session.sendGenericData({ fpmShare: { id: me, on: on } }); } catch (e) {}
 		}
 	}, 300);
-	setInterval(render, 2000); // re-bind streams that (re)connected
-	// The host page's own broadcasts never come back to it, so fpm-scenes.js hands them over directly.
-	// Build stamp (bottom-left) so we can tell which deploy a guest actually loaded.
+	setInterval(render, 2000);
+
 	(function badge() {
 		if (!document.body) return setTimeout(badge, 500);
 		var m = document.querySelector('meta[name="fpm-build"]');

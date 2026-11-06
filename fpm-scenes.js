@@ -1,19 +1,29 @@
-// FULLPORTMATT: OBS scene switcher on the HOST page (push page with &obspass=<OBS websocket password>).
-// One button per OBS scene; tap = SetCurrentProgramScene. Highlight follows the live program scene, whoever
-// changed it (OBS, bridge, bender). Talks to the local OBS (ws://127.0.0.1:4455 unless &obsurl=).
-// Optional &scenes=Solo,Guest - SBS,... limits/orders the buttons. Parse-safe (no ?. / ??).
+// FULLPORTMATT host-page controller v2 (2026-11-05, SPEC v2 "Onstage"). On the HOST page only
+// (&obspass=<OBS websocket password> + &push). Owns ALL control-plane state:
+//   - scene buttons (Starting Soon / Onstage) + OBS websocket + intro mic-mute
+//   - the CAST: ordered onstage guests in the OBS "Stage" input URL (?cast=JSON [[id,name],...]);
+//     fpm-seats.js plans joins/blips/leaves; backstage strip + hover controls admit/demote
+//   - share as STATE, not a scene: host button (second stream FPMHOST:s) + guest announces reflow
+//     the stage everywhere via the broadcast; nothing switches scenes
+//   - the native camera transform in "Onstage" follows Matt's slot (fpm-layouts geometry)
+//   - build-sync: stamps its own build into the Stage URL so OBS always runs matching code
+// Talks to local OBS (ws://127.0.0.1:4455 unless &obsurl=). Parse-safe (no ?. / ??).
 (function () {
 	"use strict";
 	var params = new URLSearchParams(window.location.search);
 	var PASS = params.get("obspass");
-	if (!PASS || !params.has("push")) {
-		return;
-	}
+	if (!PASS || !params.has("push")) return;
 	var URL_ = params.get("obsurl") || "ws://127.0.0.1:4455";
-	// Scene buttons: Matt's show set by default (2026-11-04); &scenes=A,B,... overrides, &scenes=all shows every scene.
-	var DEFAULT_SCENES = ["Starting Soon", "Solo", "Stage - SBS", "Stage - Trio", "Stage - Share"];
+	var ME = params.get("push") || "FPMHOST";
+	var DEFAULT_SCENES = ["Starting Soon", "Onstage"];
 	var ONLY = params.get("scenes") === "all" ? null : params.get("scenes") ? params.get("scenes").split(",").map(function (s) { return s.trim(); }).filter(Boolean) : DEFAULT_SCENES;
+	var STAGE_INPUT = params.get("stageinput") || "Stage";
+	var ONSTAGE_SCENE = params.get("onstagescene") || "Onstage";
+	var CAM_SOURCE = params.get("camsource") || "Osmo Pocket 4";
+	var MIC = params.get("micinput") || "Mic/Aux";
+	var MUSIC_INPUT = params.get("musicinput") || "Intro Music";
 
+	// ---------- toolbar ----------
 	var bar = document.createElement("div");
 	bar.className = "fpm-scenes";
 	bar.style.cssText =
@@ -25,77 +35,35 @@
 	status.textContent = "OBS: connecting…";
 	bar.appendChild(status);
 
-	var ws = null;
-	var reqId = 0;
-	var scenes = [];
-	var current = "";
-	var buttons = {};
-	// Stage relay: guests' pages (fpm-guestview.js) draw the same layout as OBS's stage page.
-	var STAGE_INPUT = params.get("stageinput") || "Stage";
-	var ME = params.get("push") || "FPMHOST"; // host's own stream ID; host screen share publishes as ME + ":s"
-	var stageInfo = { g1: "", g2: "", h1: "", h2: "", n1: "", n2: "" }; // n1/n2 = seated guests' NAMES (room labels); h1/h2 = legacy @handles (fallback)
-	var stageUrl = ""; // full current Stage input URL (kept so seat/handle edits preserve audio/vcodec/etc.)
+	var ws = null, reqId = 0, scenes = [], current = "", buttons = {};
+	var cast = []; // [[id,name],...] onstage guests, order = stage order
+	var stageUrl = "";
+	var labels = {}, firstSeen = {}, lastSeen = {};
+	var camItemId = 0, camLastKey = "";
+	var musicId = "";
+
 	function layoutFor(name) {
 		var n = String(name || "").toLowerCase();
-		if (n.indexOf("starting soon") !== -1 || n.indexOf("intro") !== -1) return "intro";
-		if (n === "solo") return "solo_pip"; // the OBS Solo scene: guests see Matt full + themselves in small tiles
-		if (n.indexOf("stage") === -1) return ""; // other non-stage scenes: guests see Matt solo
-		if (n.indexOf("share") !== -1) return "share";
-		if (n.indexOf("trio") !== -1) return "trio";
-		if (n.indexOf("sbs") !== -1) return "sbs";
-		if (n.indexOf("solo") !== -1) return "solo";
+		if (n.indexOf("starting") !== -1 || n.indexOf("intro") !== -1) return "intro";
+		if (n.indexOf("onstage") !== -1 || n === "solo" || n.indexOf("stage") !== -1) return "onstage";
 		return "";
 	}
-	function broadcast() {
-		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
-		try {
-			var hereNow = guestsHere();
-			var st = { scene: current, layout: layoutFor(current), g1: stageInfo.g1, g2: stageInfo.g2, h1: stageInfo.h1, h2: stageInfo.h2, n1: stageInfo.n1, n2: stageInfo.n2, sharer: typeof sharing === "string" ? sharing : "" };
-			// per-seat presence (2026-11-05): room links are &novideo, so people's pages CANNOT infer presence
-			// from video — the host page is the one truth (seated AND connected, camera state irrelevant)
-			st.ps = { g1: !!(stageInfo.g1 && hereNow[stageInfo.g1]), g2: !!(stageInfo.g2 && hereNow[stageInfo.g2]) };
-			st.music = musicId;
-			session.sendGenericData({ fpmStage: st });
-		} catch (e) {}
-		try {
-			if (window.fpmGuestView && window.fpmGuestView.set && st) window.fpmGuestView.set(st); // host's own stage view (&stageview)
-		} catch (e) {}
-	}
-	setInterval(broadcast, 4000);
 
-	// Auto screen-share switching: when a guest's share ("<id>:s") goes live while a stage scene is on air,
-	// switch OBS to the Share scene; when it ends, return to the scene we came from (unless Matt moved on).
-	var SHARE_SCENE = params.get("sharescene") || "Stage - Share";
-	// NATIVE CAMERA FOLLOWS THE SHARE COLUMN (2026-11-05 audit): the stage page reshapes its web tiles by who
-	// is present, but Matt's camera is a NATIVE OBS layer with a fixed transform — solo-share aired as a small
-	// camera over a full-height frame ("AI Crash"). The host page now sizes that scene item itself: 4K-canvas
-	// bounds at x2790 y330 w1050, height 1620 (solo) / 798 (one guest) / 524 (two, the legacy grid). Updated
-	// continuously so the scene is correct BEFORE it goes on air. Known edge: a connected guest with a muted
-	// camera still counts here while the stage page hides their tile — camera then sits one size too small
-	// (cosmetic black row) until they unmute or leave.
-	var CAM_SOURCE = params.get("camsource") || "Osmo Pocket 4";
-	var camItemId = 0, camLastH = 0;
-	function presentGuestCount() {
-		var here = guestsHere(), n = 0;
-		if (stageInfo.g1 && here[stageInfo.g1]) n++;
-		if (stageInfo.g2 && here[stageInfo.g2]) n++;
-		return n;
+	function guestsHere() {
+		var out = {};
+		if (!window.session || !session.rpcs) return out;
+		for (var U in session.rpcs) {
+			var r = session.rpcs[U];
+			var id = r && r.streamID ? String(r.streamID) : "";
+			if (!/^fpm[A-Za-z0-9]{6,}$/.test(id)) continue;
+			out[id] = (r.label || id);
+		}
+		return out;
 	}
-	setInterval(function () {
-		if (!ws || ws.readyState !== 1 || !camItemId || !window.fpmLayouts) return;
-		var b = fpmLayouts.camBounds(presentGuestCount()); // geometry from fpm-layouts.js (SPEC I2)
-		if (b.h === camLastH) return;
-		camLastH = b.h;
-		send("SetSceneItemTransform", { sceneName: SHARE_SCENE, sceneItemId: camItemId, sceneItemTransform: {
-			positionX: b.x, positionY: b.y, boundsType: "OBS_BOUNDS_SCALE_OUTER", boundsAlignment: 0,
-			boundsWidth: b.w, boundsHeight: b.h, cropToBounds: true } });
-	}, 2000);
-	var sharing = ""; // guest id currently sharing
-	var beforeShare = "";
-	var shareDbg = document.createElement("span");
-	shareDbg.style.cssText = "color:#9ab;font:11px ui-monospace,Menlo,monospace;padding:0 6px;align-self:center";
-	// Guests announce {fpmShare:{id,on}} (fpm-guestview.js) the moment they click Share / Stop.
-	var shareAnnounce = {}; // id -> {on, ts}
+
+	// ---------- share (a state, never a scene) ----------
+	var sharing = ""; // stream id of the active sharer ("FPMHOST" or an ONSTAGE fpm… id)
+	var shareAnnounce = {}; // guest id -> {on, ts}
 	(function hookShare() {
 		if (!window.session || typeof session.gotGenericData !== "function") return setTimeout(hookShare, 500);
 		if (session.__fpmShareHook) return;
@@ -104,169 +72,80 @@
 		session.gotGenericData = function (data) {
 			try {
 				if (data && data.fpmShare && data.fpmShare.id) {
-					var prevA = shareAnnounce[data.fpmShare.id];
-					shareAnnounce[data.fpmShare.id] = { on: !!data.fpmShare.on, ts: Date.now(), since: prevA && prevA.on && data.fpmShare.on ? prevA.since : 0 };
+					shareAnnounce[data.fpmShare.id] = { on: !!data.fpmShare.on, ts: Date.now() };
 				}
 			} catch (e) {}
 			return orig.apply(this, arguments);
 		};
 	})();
+	function onstageIds() { return cast.map(function (m) { return m[0]; }); }
 	function liveShareId() {
-		if (!window.session) return "";
-		// HOST share first (2026-11-05): Matt's own share is local state, not an incoming rpc. The host pressing
-		// "share screen" is an explicit act, so it wins over a guest share already on air.
-		if (session.screenShareState) {
-			shareDbg.textContent = "share: host (" + ME + ":s) · before=" + (beforeShare || "-");
-			if (!shareDbg.isConnected) bar.appendChild(shareDbg);
-			return ME;
+		if (window.session && session.screenShareState) return ME; // the host pressing share wins
+		var on = onstageIds();
+		for (var i = 0; i < on.length; i++) {
+			var a = shareAnnounce[on[i]];
+			if (a && a.on && Date.now() - a.ts < 10000) return on[i];
 		}
-		if (!session.rpcs) return "";
-		var dbg = [];
-		for (var U0 in session.rpcs) {
-			var r0 = session.rpcs[U0];
-			var sid0 = r0 && r0.streamID ? String(r0.streamID) : "";
-			if (sid0.slice(-2) !== ":s") continue;
-			var st0 = r0.streamSrc || (r0.videoElement && r0.videoElement.srcObject);
-			var vt = st0 && st0.getVideoTracks ? st0.getVideoTracks() : [];
-			dbg.push(sid0 + " pc=" + r0.connectionState + " v=" + vt.map(function (t) { return t.readyState + (t.muted ? "/muted" : "/on"); }).join("+"));
-		}
-		shareDbg.textContent = "share: " + (dbg.length ? dbg.join(" | ") : "none") + " · before=" + (beforeShare || "-");
-		if (!shareDbg.isConnected) bar.appendChild(shareDbg);
-		var ann = Object.keys(shareAnnounce).filter(function (id) { return Date.now() - shareAnnounce[id].ts < 10000; });
-		shareDbg.textContent += " · ann=" + (ann.length ? ann.map(function (id) { return id + ":" + (shareAnnounce[id].on ? "on" : "off"); }).join(",") : "-");
-		for (var a = 0; a < ann.length; a++) {
-			var an = shareAnnounce[ann[a]];
-			if (!an.on) continue;
-			if (!an.since) an.since = Date.now();
-			// Go to the Share scene once the share video has reached us (so the panel isn't black on air),
-			// or after 1.5 s regardless.
-			var arrived = false;
-			for (var U1 in session.rpcs) {
-				if (session.rpcs[U1] && session.rpcs[U1].streamID === ann[a] + ":s") arrived = true;
-			}
-			if (arrived || Date.now() - an.since > 1500) return ann[a];
-		}
-		for (var U in session.rpcs) {
-			var r = session.rpcs[U];
-			var sid = r && r.streamID ? String(r.streamID) : "";
-			if (sid.slice(-2) !== ":s") continue;
-			if (shareAnnounce[sid.slice(0, -2)] && Date.now() - shareAnnounce[sid.slice(0, -2)].ts < 10000) continue; // guest says off
-			var st = r.streamSrc || (r.videoElement && r.videoElement.srcObject);
-			if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) {
-				return sid.slice(0, -2);
+		if (window.session && session.rpcs) {
+			for (var U in session.rpcs) {
+				var r = session.rpcs[U];
+				var sid = r && r.streamID ? String(r.streamID) : "";
+				if (sid.slice(-2) !== ":s") continue;
+				var base = sid.slice(0, -2);
+				if (on.indexOf(base) === -1) continue; // backstage shares never reflow the stage
+				var a2 = shareAnnounce[base];
+				if (a2 && !a2.on && Date.now() - a2.ts < 10000) continue;
+				var st = r.streamSrc || (r.videoElement && r.videoElement.srcObject);
+				if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) return base;
 			}
 		}
 		return "";
 	}
 	setInterval(function () {
 		var now = liveShareId();
-		if (now === sharing) return;
-		var prev = sharing;
-		sharing = now;
-		if (now && !prev) {
-			// guests: auto-switch only while a stage scene is on air; HOST share: always (pressing the button IS the intent)
-			if ((now === ME || /stage/i.test(current)) && current !== SHARE_SCENE && scenes.indexOf(SHARE_SCENE) !== -1) {
-				beforeShare = current;
-				send("SetCurrentProgramScene", { sceneName: SHARE_SCENE });
-			}
-		} else if (!now && prev) {
-			if (current === SHARE_SCENE && beforeShare) {
-				send("SetCurrentProgramScene", { sceneName: beforeShare });
-			}
-			beforeShare = "";
-		}
-		broadcast();
+		if (now !== sharing) { sharing = now; broadcast(); hoverRender(); }
 	}, 300);
 
-	// INTRO SCENE AUDIO (2026-11-04): the audience hears only the intro music. Matt's mic (OBS "Mic/Aux", a global
-	// device = every scene) is muted while an intro scene is live and unmuted when it ends. Guests never reach the
-	// stream outside stage scenes (their only stream path is the "Stage" input). Matt + guests keep talking via the room.
-	var MIC = params.get("micinput") || "Mic/Aux";
-	var MUSIC_INPUT = params.get("musicinput") || "Intro Music";
-	var micMutedByUs = false;
-	function applyIntroMute() {
-		var intro = layoutFor(current) === "intro";
-		if (intro && !micMutedByUs) {
-			micMutedByUs = true;
-			send("SetInputMute", { inputName: MIC, inputMuted: true });
-		} else if (!intro && micMutedByUs) {
-			micMutedByUs = false;
-			send("SetInputMute", { inputName: MIC, inputMuted: false });
-		}
+	// ---------- broadcast ----------
+	function broadcast() {
+		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
+		var st = { scene: current, layout: layoutFor(current), cast: cast, sharer: sharing || "", music: musicId };
+		try { session.sendGenericData({ fpmStage: st }); } catch (e) {}
+		try { if (window.fpmGuestView && window.fpmGuestView.set) window.fpmGuestView.set(st); } catch (e) {}
 	}
-	// Intro music: paste any YouTube link; sets OBS "Intro Music" (audience) and tells everyone's page to play it quietly.
-	var musicId = "";
-	function ytId(u) {
-		var m = String(u || "").match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
-		return m ? m[1] : /^[A-Za-z0-9_-]{11}$/.test(String(u || "").trim()) ? String(u).trim() : "";
-	}
-	function musicUrl(id) {
-		return "https://www.youtube.com/embed/" + id + "?autoplay=1&loop=1&playlist=" + id + "&controls=0&rel=0";
-	}
-	var musicBox = document.createElement("input");
-	musicBox.type = "text";
-	musicBox.placeholder = "♪ intro music: paste YouTube link";
-	musicBox.style.cssText = "width:230px;border:0;border-radius:8px;padding:8px 10px;font:inherit;font-weight:500;background:#1b2230;color:#d7dbe3";
-	musicBox.addEventListener("keydown", function (e) {
-		if (e.key !== "Enter") return;
-		var id = ytId(musicBox.value);
-		if (!id) { musicBox.style.outline = "2px solid #e5484d"; return; }
-		musicBox.style.outline = "";
-		musicId = id;
-		send("SetInputSettings", { inputName: MUSIC_INPUT, inputSettings: { url: musicUrl(id) } });
-		musicBox.value = "♪ " + id;
-		broadcast();
-	});
+	setInterval(broadcast, 4000);
 
-	function mount() {
-		if (document.body && !bar.isConnected) {
-			document.body.appendChild(bar);
-		}
-		// Intro music moved to a visible Safari window on the mini (no ads w/ Premium, seekable), captured by OBS
-		// "Intro Music (Safari)". The embed-based box stays available behind &musicbox.
-		if (params.has("musicbox") && !musicBox.isConnected) bar.appendChild(musicBox);
-	}
-
-	// SEATING (2026-11-05, was AUTO-SEATING 2026-11-04): fpm-seats.js plans, this applies. New guests now WAIT
-	// off-stage: the host gets an alert card (name + beep) with an "Add to stage" button. A rejoiner whose NAME
-	// matches an absent seated guest retakes that seat instantly (new tab/device, no click, no 60 s wait). The
-	// optional "auto-admit" toggle (localStorage) restores the old join-order auto-seating. Stage tags are the
-	// guests' entered names (n1/n2, follow the person); h1/h2 @handles remain as a legacy fallback/override.
-	// Writes the OBS "Stage" input URL.
-	var firstSeen = {}, lastSeen = {};
-	function setStage(changes) {
+	// ---------- OBS Stage URL (cast lives here; OBS reloads the stage page on change) ----------
+	function setCast(newCast, why) {
+		cast = newCast;
 		if (!stageUrl) return;
 		var u;
 		try { u = new URL(stageUrl); } catch (e) { return; }
-		Object.keys(changes).forEach(function (k) {
-			if (changes[k]) u.searchParams.set(k, changes[k]); else u.searchParams.delete(k);
-		});
+		["g1", "g2", "h1", "h2", "n1", "n2"].forEach(function (k) { u.searchParams.delete(k); }); // legacy
+		u.searchParams.set("cast", JSON.stringify(cast));
 		stageUrl = u.toString();
 		send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
+		broadcast();
+		renderStatusText();
+		hoverRender();
+		camApply();
 	}
-	function guestsHere() {
-		var out = {};
-		if (!window.session || !session.rpcs) return out;
-		for (var U in session.rpcs) {
-			var r = session.rpcs[U];
-			var id = r && r.streamID ? String(r.streamID) : "";
-			if (!/^fpm[A-Za-z0-9]{6,}$/.test(id)) continue; // guests only: "fpm" + id (case-sensitive: FPM* host feeds and ":s" shares excluded)
-			out[id] = (r.label || id);
-			hasLabel[id] = !!r.label;
-		}
-		return out;
-	}
-	var hasLabel = {}; // id -> the room label has arrived (until then the guest shows as their id)
-	function nameFor(id) {
-		return id && hasLabel[id] ? labels[id] || "" : "";
-	}
-	var labels = {};
-	var AUTO_KEY = "fpmAutoAdmit";
-	var autoAdmit = false;
-	try { autoAdmit = localStorage.getItem(AUTO_KEY) === "1"; } catch (e) {}
 
-	// New-guest beep: two short rising tones. AudioContext may start suspended until the page has had a
-	// user gesture; we resume on the first click, so at worst the very first card is silent.
+	// ---------- native camera transform (Matt = slot 0) ----------
+	function camApply() {
+		if (!ws || ws.readyState !== 1 || !camItemId || !window.fpmLayouts) return;
+		var n = 1 + cast.length;
+		var r = sharing ? fpmLayouts.shareLayout(n).tiles[0] : fpmLayouts.gridLayout(n)[0];
+		var key = r.join(",");
+		if (key === camLastKey) return;
+		camLastKey = key;
+		send("SetSceneItemTransform", { sceneName: ONSTAGE_SCENE, sceneItemId: camItemId, sceneItemTransform: {
+			positionX: r[0] * 2, positionY: r[1] * 2, boundsType: "OBS_BOUNDS_SCALE_OUTER", boundsAlignment: 0,
+			boundsWidth: r[2] * 2, boundsHeight: r[3] * 2, cropToBounds: true } });
+	}
+	setInterval(camApply, 2000);
+
+	// ---------- alerts / notices ----------
 	var actx = null;
 	function beep() {
 		try {
@@ -284,138 +163,122 @@
 		} catch (e) {}
 	}
 	document.addEventListener("click", function () { if (actx && actx.state === "suspended") actx.resume(); }, true);
-
-	// Alert row: one card per waiting guest (stacks), plus transient notices (rejoins). Below the scene bar,
-	// never covering it, no dismissal needed.
 	var alertRow = document.createElement("div");
-	alertRow.className = "fpm-alerts";
 	alertRow.style.cssText = "position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:99998;display:flex;flex-direction:column;gap:6px;align-items:center;font:600 13px system-ui,-apple-system,sans-serif";
-	function mountAlerts() {
-		if (document.body && !alertRow.isConnected) document.body.appendChild(alertRow);
-		// under the bar's real bottom edge: the bar wraps to two rows on laptops, and a card hidden behind it
-		// (bar z-index is higher) cannot be clicked
-		try { if (bar.isConnected) alertRow.style.top = Math.round(bar.getBoundingClientRect().bottom + 8) + "px"; } catch (e) {}
-	}
-	function card(bg) {
-		var c = document.createElement("div");
-		c.style.cssText = "display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:" + bg + ";color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.45)";
-		return c;
-	}
 	function notice(text) {
-		mountAlerts();
-		var c = card("rgba(26,59,43,.95)");
+		if (document.body && !alertRow.isConnected) document.body.appendChild(alertRow);
+		try { if (bar.isConnected) alertRow.style.top = Math.round(bar.getBoundingClientRect().bottom + 8) + "px"; } catch (e) {}
+		var c = document.createElement("div");
+		c.style.cssText = "display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:rgba(26,59,43,.95);color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.45)";
 		c.textContent = text;
 		alertRow.appendChild(c);
 		setTimeout(function () { c.remove(); }, 6000);
 	}
-	var waitCards = {}; // waiting guest id -> {card, name, btn}
-	function updateWaiting(waiting, here, hasFree) {
-		if (alertRow.isConnected) mountAlerts();
-		Object.keys(waitCards).forEach(function (id) {
-			if (waiting.indexOf(id) === -1) { waitCards[id].card.remove(); delete waitCards[id]; }
+
+	// ---------- backstage strip (host-only): live tiles + "Bring Onstage" ----------
+	var strip = document.createElement("div");
+	strip.style.cssText = "position:fixed;left:16px;bottom:96px;z-index:960;display:flex;gap:10px;align-items:flex-end;font:600 12px system-ui,-apple-system,sans-serif";
+	var stripTiles = {}; // id -> {box, name, iframe}
+	function stripSync(backstage) {
+		if (document.body && !strip.isConnected) document.body.appendChild(strip);
+		Object.keys(stripTiles).forEach(function (id) {
+			if (backstage.indexOf(id) === -1) { stripTiles[id].box.remove(); delete stripTiles[id]; }
 		});
-		waiting.forEach(function (id) {
-			var name = here[id] || id;
-			var w = waitCards[id];
-			if (!w) {
-				mountAlerts();
-				var c = card("rgba(64,30,36,.96)");
-				var nm = document.createElement("span");
-				var btn = document.createElement("button");
-				btn.type = "button";
-				btn.style.cssText = "border:0;border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit;background:#2f855a;color:#fff";
-				btn.onclick = function () {
-					var seat = window.fpmSeats ? fpmSeats.admit({ seats: { g1: stageInfo.g1, g2: stageInfo.g2 }, here: guestsHere(), lastSeen: lastSeen, now: Date.now() }, id) : "";
-					if (!seat) return;
-					var ch = {};
-					ch[seat] = id;
-					ch[seat === "g1" ? "n1" : "n2"] = nameFor(id);
-					ch[seat === "g1" ? "h1" : "h2"] = ""; // old @handle belonged to the seat's previous guest
-					stageInfo[seat] = id;
-					stageInfo[seat === "g1" ? "n1" : "n2"] = nameFor(id);
-					stageInfo[seat === "g1" ? "h1" : "h2"] = "";
-					setStage(ch);
-					broadcast();
-					renderSeats();
-					c.remove();
-					delete waitCards[id];
-				};
-				c.appendChild(nm); c.appendChild(btn);
-				alertRow.appendChild(c);
-				waitCards[id] = { card: c, nm: nm, btn: btn };
-				beep();
-				w = waitCards[id];
-			}
-			w.nm.textContent = "🔔 " + name + " joined";
-			w.btn.textContent = hasFree ? "Add to stage" : "seats full";
-			w.btn.disabled = !hasFree;
-			w.btn.style.background = hasFree ? "#2f855a" : "#3a4254";
-			w.btn.style.cursor = hasFree ? "pointer" : "default";
+		backstage.forEach(function (id) {
+			if (stripTiles[id]) { stripTiles[id].name.textContent = labels[id] || id; return; }
+			var box = document.createElement("div");
+			box.style.cssText = "position:relative;width:240px;height:168px;border-radius:10px;overflow:hidden;background:#0e1a2b;box-shadow:0 0 0 3px #5a606a,0 8px 24px rgba(0,0,0,.6)";
+			var f = document.createElement("iframe");
+			f.allow = "autoplay";
+			f.src = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(params.get("room") || "fpmshow") + "&cover&noaudio&viewheight=360&videobitrate=500&label=Full_Port_Matt";
+			f.style.cssText = "position:absolute;left:0;top:0;width:100%;height:135px;border:0;pointer-events:none";
+			box.appendChild(f);
+			var chip = document.createElement("div");
+			chip.style.cssText = "position:absolute;left:8px;top:8px;background:rgba(90,96,106,.92);color:#e8ebf0;padding:2px 8px;border-radius:5px;font-size:11px;letter-spacing:1px";
+			chip.textContent = "BACKSTAGE";
+			box.appendChild(chip);
+			var nm = document.createElement("div");
+			nm.style.cssText = "position:absolute;left:0;right:0;bottom:0;height:33px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;background:rgba(10,16,24,.95);color:#d7dbe3";
+			var nmTxt = document.createElement("span");
+			nmTxt.textContent = labels[id] || id;
+			nmTxt.style.cssText = "overflow:hidden;white-space:nowrap;max-width:120px";
+			var btn = document.createElement("button");
+			btn.type = "button";
+			btn.textContent = "Bring Onstage";
+			btn.style.cssText = "border:0;border-radius:6px;padding:4px 8px;cursor:pointer;font:inherit;font-size:11px;background:#2f855a;color:#fff;opacity:0;transition:opacity .15s";
+			btn.onclick = function () {
+				var next = fpmSeats.admit(cast, id, labels[id] || "");
+				if (next.length === cast.length) { notice("Stage is full (8 guests)"); return; }
+				setCast(next, "admit");
+				notice("🎬 " + (labels[id] || id) + " brought onstage");
+			};
+			nm.appendChild(nmTxt); nm.appendChild(btn);
+			box.appendChild(nm);
+			box.onmouseenter = function () { btn.style.opacity = "1"; };
+			box.onmouseleave = function () { btn.style.opacity = "0"; };
+			strip.appendChild(box);
+			stripTiles[id] = { box: box, name: nmTxt, iframe: f };
+			beep();
+			notice("🔔 " + (labels[id] || id) + " joined — backstage");
 		});
 	}
 
+	// ---------- hover layer over the stage view: "Send Backstage" on onstage tiles ----------
+	var hover = document.createElement("div");
+	hover.style.cssText = "position:fixed;inset:0;z-index:950;pointer-events:none";
+	function hoverRender() {
+		if (document.body && !hover.isConnected) document.body.appendChild(hover);
+		hover.innerHTML = "";
+		if (!window.fpmLayouts || !cast.length) return;
+		if (layoutFor(current) !== "onstage") return;
+		var n = 1 + cast.length;
+		var rects = sharing ? fpmLayouts.shareLayout(n).tiles : fpmLayouts.gridLayout(n);
+		var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+		var ox = (window.innerWidth - 1920 * s) / 2, oy = (window.innerHeight - 1080 * s) / 2;
+		cast.forEach(function (m, i) {
+			var r = rects[i + 1];
+			if (!r) return;
+			var z = document.createElement("div");
+			z.style.cssText = "position:absolute;pointer-events:auto;left:" + (ox + r[0] * s) + "px;top:" + (oy + r[1] * s) + "px;width:" + (r[2] * s) + "px;height:" + (r[3] * s) + "px";
+			var btn = document.createElement("button");
+			btn.type = "button";
+			btn.textContent = "Send Backstage";
+			btn.style.cssText = "position:absolute;left:50%;top:12px;transform:translateX(-50%);border:0;border-radius:8px;padding:7px 12px;cursor:pointer;font:600 12px system-ui;background:rgba(120,44,50,.95);color:#fff;opacity:0;transition:opacity .15s";
+			btn.onclick = function () {
+				setCast(fpmSeats.demote(cast, m[0]), "demote");
+				notice("↩ " + (m[1] || m[0]) + " sent backstage");
+			};
+			z.appendChild(btn);
+			z.onmouseenter = function () { btn.style.opacity = "1"; };
+			z.onmouseleave = function () { btn.style.opacity = "0"; };
+			hover.appendChild(z);
+		});
+	}
+	window.addEventListener("resize", hoverRender);
+
+	// ---------- roster → planner loop ----------
+	var AUTO_KEY = "fpmAutoAdmit";
+	var autoAdmit = false;
+	try { autoAdmit = localStorage.getItem(AUTO_KEY) === "1"; } catch (e) {}
 	setInterval(function () {
 		if (!stageUrl || !ws || ws.readyState !== 1 || !window.fpmSeats) return;
 		var here = guestsHere(), now = Date.now();
-		// Returning guests (2026-11-05, Matt): a seat survives a short blip (silent return + notice), but
-		// someone gone > STALE_MS who comes back is a NEW arrival — vacate their old seat so they get the
-		// alert + "Add to stage" flow again instead of walking silently back on stage.
-		Object.keys(here).forEach(function (id) {
-			var prev = lastSeen[id] || 0;
-			if (firstSeen[id] && prev && now - prev > 5000) {
-				var seatOf = stageInfo.g1 === id ? "g1" : stageInfo.g2 === id ? "g2" : "";
-				if (seatOf && now - prev > fpmSeats.STALE_MS) {
-					var ch0 = {};
-					ch0[seatOf] = ""; ch0[seatOf === "g1" ? "n1" : "n2"] = ""; ch0[seatOf === "g1" ? "h1" : "h2"] = "";
-					stageInfo[seatOf] = ""; stageInfo[seatOf === "g1" ? "n1" : "n2"] = ""; stageInfo[seatOf === "g1" ? "h1" : "h2"] = "";
-					setStage(ch0);
-					broadcast();
-				} else if (seatOf) {
-					notice("↩ " + (here[id] || id) + " reconnected");
-				}
-			}
-		});
-		Object.keys(here).forEach(function (id) { if (!firstSeen[id]) firstSeen[id] = now; lastSeen[id] = now; labels[id] = here[id]; });
-		var res = fpmSeats.plan({
-			seats: { g1: stageInfo.g1, g2: stageInfo.g2 },
-			names: { g1: stageInfo.n1, g2: stageInfo.n2 },
-			here: here, firstSeen: firstSeen, lastSeen: lastSeen, now: now, autoAdmit: autoAdmit
-		});
-		var ch = {};
-		["g1", "g2"].forEach(function (seat, i) {
-			var nk = i ? "n2" : "n1";
-			if (res.seats[seat] !== stageInfo[seat]) { stageInfo[seat] = res.seats[seat]; ch[seat] = res.seats[seat]; }
-			var nn = res.names[seat] || "";
-			if (nn === res.seats[seat] && !hasLabel[nn]) nn = stageInfo[nk] || ""; // label not here yet: keep what the stage shows
-			if (nn !== (stageInfo[nk] || "")) { stageInfo[nk] = nn; ch[nk] = nn; }
-		});
-		// a DIFFERENT person in a seat makes its old @handle wrong; rejoins (same person) keep theirs
-		res.admitted.forEach(function (a) {
-			var hk = a.seat === "g1" ? "h1" : "h2";
-			if (stageInfo[hk]) { stageInfo[hk] = ""; ch[hk] = ""; }
-		});
-		if (Object.keys(ch).length) { setStage(ch); broadcast(); }
-		res.rejoined.forEach(function (r) { notice("↩ " + (here[r.id] || r.id) + " rejoined — back on stage"); });
-		res.admitted.forEach(function (a) { notice("✓ " + (here[a.id] || a.id) + " auto-admitted to stage"); });
-		updateWaiting(res.waiting, here, res.free.length > 0);
-		renderSeats();
+		Object.keys(here).forEach(function (id) { if (!firstSeen[id]) firstSeen[id] = now; labels[id] = here[id]; });
+		var res = fpmSeats.plan({ onstage: cast, here: here, firstSeen: firstSeen, lastSeen: lastSeen, now: now, autoAdmit: autoAdmit });
+		Object.keys(here).forEach(function (id) { lastSeen[id] = now; });
+		var changed = JSON.stringify(res.onstage) !== JSON.stringify(cast);
+		res.removed.forEach(function (m) { notice("👋 " + (m[1] || m[0]) + " left the stage (gone > 60 s)"); });
+		res.rejoined.forEach(function (m) { notice("↩ " + m.name + " reconnected — back in their spot"); });
+		res.admitted.forEach(function (id) { notice("✓ " + (here[id] || id) + " auto-admitted onstage"); });
+		if (changed) setCast(res.onstage, "plan");
+		stripSync(res.backstage);
+		renderStatusText();
 	}, 2000);
 
+	// ---------- toolbar widgets ----------
 	var seatBox = document.createElement("span");
-	seatBox.style.cssText = "display:inline-flex;gap:6px;align-items:center;color:#d7dbe3;font:600 12px system-ui;padding:0 4px";
+	seatBox.style.cssText = "display:inline-flex;gap:8px;align-items:center;color:#d7dbe3;font:600 12px system-ui;padding:0 4px";
 	var seatText = document.createElement("span");
-	var swapBtn = document.createElement("button");
-	swapBtn.type = "button";
-	swapBtn.textContent = "⇄ swap positions";
-	swapBtn.title = "Swap which guest is in seat 1 vs seat 2 (names travel with the guests)";
-	swapBtn.style.cssText = "border:0;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;background:#2a3140;color:#d7dbe3";
-	swapBtn.onclick = function () {
-		var s = { g1: stageInfo.g2, g2: stageInfo.g1, n1: stageInfo.n2, n2: stageInfo.n1, h1: stageInfo.h2, h2: stageInfo.h1 };
-		Object.keys(s).forEach(function (k) { stageInfo[k] = s[k]; });
-		setStage(s);
-		renderSeats();
-		broadcast();
-	};
 	var autoLab = document.createElement("label");
 	autoLab.style.cssText = "display:inline-flex;gap:4px;align-items:center;cursor:pointer;font:500 11px system-ui;color:#9ab";
 	var autoChk = document.createElement("input");
@@ -427,8 +290,6 @@
 	};
 	autoLab.appendChild(autoChk);
 	autoLab.appendChild(document.createTextNode("auto-admit"));
-	// Host screen share (2026-11-05): same second-stream share as guests (publishes ME + ":s"); the share
-	// auto-switch above sees session.screenShareState and flips OBS to the Share scene / back.
 	var shareBtn = document.createElement("button");
 	shareBtn.type = "button";
 	shareBtn.textContent = "🖥 share screen";
@@ -444,19 +305,42 @@
 		shareBtn.style.color = on ? "#fff" : "#d7dbe3";
 	}, 500);
 	seatBox.appendChild(seatText);
-	seatBox.appendChild(swapBtn);
 	seatBox.appendChild(autoLab);
 	seatBox.appendChild(shareBtn);
-	function seatLabel(seat, i) {
-		var id = stageInfo[seat];
-		var nm = i ? stageInfo.n2 : stageInfo.n1;
-		var hk = i ? stageInfo.h2 : stageInfo.h1;
-		var who = id ? (nm || labels[id] || id) : "empty";
-		return (seat === "g1" ? "Seat 1: " : "Seat 2: ") + who + (hk ? " (" + hk + ")" : "");
-	}
-	function renderSeats() {
-		seatText.textContent = seatLabel("g1", 0) + "  ·  " + seatLabel("g2", 1);
+	function renderStatusText() {
+		seatText.textContent = "Onstage: " + cast.length + "/8 · Backstage: " + Object.keys(stripTiles).length;
 		if (!seatBox.isConnected && bar.isConnected) bar.appendChild(seatBox);
+	}
+
+	// ---------- intro music + mic mute ----------
+	var micMutedByUs = false;
+	function applyIntroMute() {
+		var intro = layoutFor(current) === "intro";
+		if (intro && !micMutedByUs) { micMutedByUs = true; send("SetInputMute", { inputName: MIC, inputMuted: true }); }
+		else if (!intro && micMutedByUs) { micMutedByUs = false; send("SetInputMute", { inputName: MIC, inputMuted: false }); }
+	}
+	function ytId(u) {
+		var m = String(u || "").match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/live\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
+		return m ? m[1] : /^[A-Za-z0-9_-]{11}$/.test(String(u || "").trim()) ? String(u).trim() : "";
+	}
+	var musicBox = document.createElement("input");
+	musicBox.type = "text";
+	musicBox.placeholder = "♪ intro music: paste YouTube link";
+	musicBox.style.cssText = "width:230px;border:0;border-radius:8px;padding:8px 10px;font:inherit;font-weight:500;background:#1b2230;color:#d7dbe3";
+	musicBox.addEventListener("keydown", function (e) {
+		if (e.key !== "Enter") return;
+		var id = ytId(musicBox.value);
+		if (!id) { musicBox.style.outline = "2px solid #e5484d"; return; }
+		musicBox.style.outline = "";
+		musicId = id;
+		send("SetInputSettings", { inputName: MUSIC_INPUT, inputSettings: { url: "https://www.youtube.com/embed/" + id + "?autoplay=1&loop=1&playlist=" + id + "&controls=0&rel=0" } });
+		musicBox.value = "♪ " + id;
+		broadcast();
+	});
+
+	function mount() {
+		if (document.body && !bar.isConnected) document.body.appendChild(bar);
+		if (params.has("musicbox") && !musicBox.isConnected) bar.appendChild(musicBox);
 	}
 
 	function render() {
@@ -472,9 +356,7 @@
 				b.type = "button";
 				b.textContent = name;
 				b.style.cssText = "border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit";
-				b.addEventListener("click", function () {
-					send("SetCurrentProgramScene", { sceneName: name });
-				});
+				b.addEventListener("click", function () { send("SetCurrentProgramScene", { sceneName: name }); });
 				buttons[name] = b;
 				bar.appendChild(b);
 			});
@@ -487,37 +369,25 @@
 		});
 	}
 
+	// ---------- OBS websocket ----------
 	function send(type, data) {
-		if (!ws || ws.readyState !== 1) {
-			return;
-		}
+		if (!ws || ws.readyState !== 1) return;
 		reqId += 1;
 		ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: type + ":" + reqId, requestData: data || {} } }));
 	}
-
 	async function sha256b64(str) {
 		var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
 		var bin = "";
 		new Uint8Array(buf).forEach(function (b) { bin += String.fromCharCode(b); });
 		return btoa(bin);
 	}
-
 	function connect() {
-		try {
-			ws = new WebSocket(URL_);
-		} catch (e) {
-			setTimeout(connect, 3000);
-			return;
-		}
+		try { ws = new WebSocket(URL_); } catch (e) { setTimeout(connect, 3000); return; }
 		ws.onmessage = async function (m) {
 			var d;
-			try {
-				d = JSON.parse(m.data);
-			} catch (e) {
-				return;
-			}
+			try { d = JSON.parse(m.data); } catch (e) { return; }
 			if (d.op === 0) {
-				var ident = { rpcVersion: 1, eventSubscriptions: 12 }; // Scenes + Inputs
+				var ident = { rpcVersion: 1, eventSubscriptions: 12 };
 				if (d.d.authentication) {
 					var secret = await sha256b64(PASS + d.d.authentication.salt);
 					ident.authentication = await sha256b64(secret + d.d.authentication.challenge);
@@ -529,7 +399,7 @@
 				send("GetSceneList");
 				send("GetInputSettings", { inputName: STAGE_INPUT });
 				send("GetInputSettings", { inputName: MUSIC_INPUT });
-				send("GetSceneItemList", { sceneName: SHARE_SCENE });
+				send("GetSceneItemList", { sceneName: ONSTAGE_SCENE });
 			} else if (d.op === 7) {
 				var r = d.d.responseData || {};
 				if (d.d.requestType === "GetInputSettings" && r.inputSettings && r.inputSettings.url && /youtube/.test(r.inputSettings.url)) {
@@ -537,24 +407,37 @@
 					if (musicId) musicBox.value = "♪ " + musicId;
 				} else if (d.d.requestType === "GetInputSettings" && r.inputSettings && /stage\.html/.test(r.inputSettings.url || "")) {
 					try {
-						var sp = new URL(r.inputSettings.url).searchParams;
-						stageInfo = { g1: sp.get("g1") || "", g2: sp.get("g2") || "", h1: sp.get("h1") || "", h2: sp.get("h2") || "", n1: sp.get("n1") || "", n2: sp.get("n2") || "" };
+						var u = new URL(r.inputSettings.url);
+						var sp = u.searchParams;
 						stageUrl = r.inputSettings.url;
-						renderSeats();
-						// BUILD SYNC (2026-11-05, "AI Crash" post-mortem): OBS's browser source cached a stale
-						// stage.html for ~40 min ON AIR (old tags, no host share, dead ticker) while the host page
-						// ran fresh code. The host page now stamps its own build into the Stage URL; the URL change
-						// makes OBS reload the stage page, so OBS always runs the same code the host page does.
+						var parsed = [];
+						try { if (sp.get("cast")) parsed = JSON.parse(sp.get("cast")); } catch (e2) {}
+						if (!sp.get("cast") && (sp.get("g1") || sp.get("g2"))) {
+							// one-time legacy migration
+							if (sp.get("g1")) parsed.push([sp.get("g1"), sp.get("n1") || sp.get("h1") || ""]);
+							if (sp.get("g2")) parsed.push([sp.get("g2"), sp.get("n2") || sp.get("h2") || ""]);
+							cast = parsed;
+							setCast(parsed, "migrate-legacy");
+						} else {
+							cast = parsed.map(function (m) { return [String(m[0]), String(m[1] || "")]; });
+						}
+						renderStatusText();
+						hoverRender();
+						camApply();
+						// BUILD SYNC: force OBS onto this page's build
 						var bm0 = document.querySelector('meta[name="fpm-build"]');
 						if (bm0 && bm0.content && sp.get("b") !== bm0.content) {
-							setStage({ b: bm0.content });
+							var u2 = new URL(stageUrl);
+							u2.searchParams.set("b", bm0.content);
+							stageUrl = u2.toString();
+							send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
 						}
 					} catch (e) {}
 					broadcast();
 				}
 				if (d.d.requestType === "GetSceneItemList" && r.sceneItems) {
 					var camIt = r.sceneItems.filter(function (it) { return it.sourceName === CAM_SOURCE; })[0];
-					if (camIt) { camItemId = camIt.sceneItemId; camLastH = 0; } // re-apply after any rediscovery
+					if (camIt) { camItemId = camIt.sceneItemId; camLastKey = ""; camApply(); }
 				}
 				if (d.d.requestType === "GetSceneList" && r.scenes) {
 					scenes = r.scenes.slice().sort(function (a, b) { return b.sceneIndex - a.sceneIndex; }).map(function (s) { return s.sceneName; });
@@ -570,11 +453,12 @@
 					applyIntroMute();
 					render();
 					broadcast();
+					hoverRender();
 				} else if (ev === "InputSettingsChanged" && d.d.eventData.inputName === STAGE_INPUT) {
 					send("GetInputSettings", { inputName: STAGE_INPUT });
 				} else if (ev === "SceneListChanged" || ev === "SceneNameChanged" || ev === "SceneCreated" || ev === "SceneRemoved") {
 					send("GetSceneList");
-					send("GetSceneItemList", { sceneName: SHARE_SCENE }); // camera item id may have changed
+					send("GetSceneItemList", { sceneName: ONSTAGE_SCENE });
 				}
 			}
 		};
@@ -585,9 +469,5 @@
 			setTimeout(connect, 3000);
 		};
 	}
-
-	setTimeout(function () {
-		mount();
-		connect();
-	}, 1000);
+	setTimeout(function () { mount(); connect(); }, 1000);
 })();
