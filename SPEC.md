@@ -161,3 +161,40 @@ Original questions (for history):
 8. **Starting Soon decorative ticker** (fake green numbers) — real or art (pending since the sweep).
 9. **Legacy Label Box/Text items** disabled in several scenes — delete (retired 2026-10-21) or keep as
    fallback?
+
+## 8. SPEC v2 — the Onstage model (Matt, 2026-11-05 evening; supersedes §2's scene matrix when built)
+
+**Two scenes: "Starting Soon" and "Onstage".** Everything else is state, not scenes.
+
+- **Backstage**: every connected guest not onstage. Visible ONLY in Matt's host view, as live camera
+  tiles with a grey "Backstage" badge; hover → **Bring Onstage**. Backstage guests are never on air,
+  never in other guests' views, and their audio never reaches the stream (no stage slot = no stream
+  path). A backstage guest's own page shows the stage + their own preview marked "Backstage".
+- **Onstage set**: ordered list (Matt always first), up to 9 guests + Matt = 10 people. Hover an
+  onstage tile (host view) → **Send Backstage**. Tags = names, per tile, any count.
+- **Share is a stage update, not a scene**: when anyone onstage (Matt or guest) shares, the stage
+  re-flows to share mode; when it stops, back to grid. No scene switch.
+- **Grid (no share)**, people = Matt + onstage: 1 row up to 3; else 2 rows — even split evenly, odd
+  ceil on top (5 → 3+2). Uniform tile size, shorter row centered. Minimum rows always.
+- **Share mode**: screen panel + right side column(s): 1 column up to 4 people; more → 2 columns,
+  odd ceil on the left (5 → 3+2). Minimum columns always. Column tile width 525 (1 col) / 400 (2 cols);
+  the share panel takes the rest (≥1000px wide at every count).
+- Engine: `fpm-layouts.js` `gridLayout(n)` / `shareLayout(n)`, unit-tested for n=1..10; legacy
+  equivalence proven (2 people = SBS halves; share ≤3 people = the existing column pixel-for-pixel).
+
+**Design calls made by bender, flag to change:** (a) Matt counts as a grid/column tile like everyone
+else (solo = grid of 1 = full frame, matching today); his tile is still the native OBS camera, its
+transform driven per-slot by the host page. (b) Join flow: beep + the backstage tile itself is the
+persistent UI (alert cards retire); >60 s returnees land backstage again (ask-again rule carries over).
+(c) Onstage ordering = admission order; explicit reordering UI deferred (swap button retires with the
+2-seat model). (d) Per-tile frames + name tags move INTO stage.html (drawn dynamically for any n);
+retro band art (logo/bands/ticker) stays as the background overlay; retro-sbs/trio/share per-layout
+files retire after the migration.
+
+**Migration order (build day 2026-11-06):** 1) stage.html renders grid/share from the onstage list
+(new `stage` state: ordered ids + names, replacing g1/g2/n1/n2 — Stage URL carries `cast=` JSON).
+2) fpm-seats generalizes to the backstage/onstage model. 3) Host-view backstage strip + hover
+controls. 4) OBS: create "Onstage" scene (native camera + Stage + Chat Overlay + Captions +
+TeachPanel + Platform Badges), retire Solo/Stage-SBS/Trio/Share (zz), camera transform per-slot.
+5) Dynamic tags/frames in stage.html; retro art overlay slimmed. 6) Parity harness run across
+n=0..9 synthetic cast + real-guest drill before any show.

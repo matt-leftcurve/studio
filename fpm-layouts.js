@@ -45,7 +45,49 @@
 	// Name tags hug their tile's bottom edge with this inset (page units), fixed size at any tile size.
 	var TAG_INSET = 57;
 
-	var api = { PANELS: PANELS, OVERLAYS: OVERLAYS, SHARE_COL: SHARE_COL, shareSlots: shareSlots, camBounds: camBounds, TAG_INSET: TAG_INSET };
+	// ===== ONSTAGE MODEL (Matt, 2026-11-05 evening; SPEC v2) =====
+	// Two scenes only: Starting Soon + Onstage. people = Matt + onstage guests (1..10), Matt first.
+	// No share: 1 row up to 3 people, else 2 rows (even: split evenly; odd: ceil on top — 5 -> 3+2).
+	// Share: screen + right-hand tile column(s): 1 column up to 4 people, else 2 columns
+	// (odd: ceil on the left — 5 -> 3 left + 2 right). Always the minimum rows/columns.
+	var STAGE_BAND = { top: 165, h: 810, w: 1920, gap: 15 };
+	function rowSplit(n) { if (n <= 3) return [n]; var a = Math.ceil(n / 2); return [a, n - a]; }
+	function gridLayout(n) {
+		n = Math.max(1, Math.min(10, n));
+		var rows = rowSplit(n);
+		var rh = (STAGE_BAND.h - STAGE_BAND.gap * (rows.length - 1)) / rows.length;
+		var cols = Math.max.apply(null, rows);
+		var tw = (STAGE_BAND.w - STAGE_BAND.gap * (cols - 1)) / cols;
+		var out = [], y = STAGE_BAND.top;
+		for (var r = 0; r < rows.length; r++) {
+			var cnt = rows[r];
+			var x = (STAGE_BAND.w - (cnt * tw + (cnt - 1) * STAGE_BAND.gap)) / 2; // shorter row centered
+			for (var i = 0; i < cnt; i++) { out.push([Math.round(x), Math.round(y), Math.round(tw), Math.round(rh)]); x += tw + STAGE_BAND.gap; }
+			y += rh + STAGE_BAND.gap;
+		}
+		return out;
+	}
+	function colSplit(n) { if (n <= 4) return [n]; var a = Math.ceil(n / 2); return [a, n - a]; }
+	// share mode: returns { share:[x,y,w,h], tiles:[[x,y,w,h],...] } — tiles in people order, column-major
+	// (fills the left column top-to-bottom, then the right). Column gap matches the legacy 12px grid so
+	// shareTiles(1..3) reproduces the proven column exactly.
+	function shareLayout(n) {
+		n = Math.max(1, Math.min(10, n));
+		var cols = colSplit(n);
+		var tileW = cols.length === 1 ? 525 : 400;
+		var sideW = cols.length * tileW + (cols.length - 1) * STAGE_BAND.gap;
+		var shareW = STAGE_BAND.w - sideW - STAGE_BAND.gap;
+		var tiles = [], x = STAGE_BAND.w - sideW;
+		for (var c = 0; c < cols.length; c++) {
+			var cnt = cols[c];
+			var th = (STAGE_BAND.h - 12 * (cnt - 1)) / cnt;
+			var y = STAGE_BAND.top;
+			for (var i = 0; i < cnt; i++) { tiles.push([Math.round(x), Math.round(y), tileW, Math.round(th)]); y += th + 12; }
+			x += tileW + STAGE_BAND.gap;
+		}
+		return { share: [0, STAGE_BAND.top, Math.round(shareW), STAGE_BAND.h], tiles: tiles };
+	}
+	var api = { PANELS: PANELS, OVERLAYS: OVERLAYS, SHARE_COL: SHARE_COL, shareSlots: shareSlots, camBounds: camBounds, TAG_INSET: TAG_INSET, STAGE_BAND: STAGE_BAND, gridLayout: gridLayout, shareLayout: shareLayout, rowSplit: rowSplit, colSplit: colSplit };
 	if (typeof module !== "undefined" && module.exports) module.exports = api;
 	root.fpmLayouts = api;
 })(typeof window !== "undefined" ? window : this);
