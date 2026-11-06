@@ -357,6 +357,24 @@
 	setInterval(function () {
 		if (!stageUrl || !ws || ws.readyState !== 1 || !window.fpmSeats) return;
 		var here = guestsHere(), now = Date.now();
+		// Returning guests (2026-11-05, Matt): a seat survives a short blip (silent return + notice), but
+		// someone gone > STALE_MS who comes back is a NEW arrival — vacate their old seat so they get the
+		// alert + "Add to stage" flow again instead of walking silently back on stage.
+		Object.keys(here).forEach(function (id) {
+			var prev = lastSeen[id] || 0;
+			if (firstSeen[id] && prev && now - prev > 5000) {
+				var seatOf = stageInfo.g1 === id ? "g1" : stageInfo.g2 === id ? "g2" : "";
+				if (seatOf && now - prev > fpmSeats.STALE_MS) {
+					var ch0 = {};
+					ch0[seatOf] = ""; ch0[seatOf === "g1" ? "n1" : "n2"] = ""; ch0[seatOf === "g1" ? "h1" : "h2"] = "";
+					stageInfo[seatOf] = ""; stageInfo[seatOf === "g1" ? "n1" : "n2"] = ""; stageInfo[seatOf === "g1" ? "h1" : "h2"] = "";
+					setStage(ch0);
+					broadcast();
+				} else if (seatOf) {
+					notice("↩ " + (here[id] || id) + " reconnected");
+				}
+			}
+		});
 		Object.keys(here).forEach(function (id) { if (!firstSeen[id]) firstSeen[id] = now; lastSeen[id] = now; labels[id] = here[id]; });
 		var res = fpmSeats.plan({
 			seats: { g1: stageInfo.g1, g2: stageInfo.g2 },

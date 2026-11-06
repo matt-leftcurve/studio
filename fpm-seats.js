@@ -65,7 +65,10 @@
 			return d !== 0 ? d : a < b ? -1 : a > b ? 1 : 0;
 		});
 
-		// 1. rejoin by name: same person, new stream ID (new device / cleared storage) -> same seat, no admit click
+		// 1. rejoin by name: same person, new stream ID (new device / cleared storage) -> same seat, no admit
+		// click — but only within STALE_MS of the occupant's disappearance (2026-11-05, Matt: someone who
+		// LEFT and comes back later must be asked again; only short blips/device switches are seamless)
+		var lastSeen = input.lastSeen || {};
 		var still = [];
 		for (var w = 0; w < waiting.length; w++) {
 			var id = waiting[w];
@@ -76,6 +79,9 @@
 					cur = seats[seat];
 					if (!cur || here[cur]) {
 						continue; // empty, or its guest is present
+					}
+					if (now - (lastSeen[cur] || 0) > STALE_MS) {
+						continue; // occupant long gone: successor must be admitted, not auto-seated
 					}
 					if (norm(names[seat]) === norm(here[id])) {
 						took = seat;

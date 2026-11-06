@@ -115,3 +115,4 @@ docs.md
 /thirdparty/jquery.min.js.LICENSE
 /thirdparty/jquery/jquery-ui.min.js
 /thirdparty/webmidi.js
+!/tests/

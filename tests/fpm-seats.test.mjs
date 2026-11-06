@@ -20,3 +20,15 @@ r = S.plan({ seats: { g1: "fpmA", g2: "" }, names: { g1: "Joe", g2: "" }, here: 
 assert.strictEqual(r.names.g1, "Joseph");
 assert.deepStrictEqual(S.swap({ g1: "A", g2: "B" }, { g1: "Ann", g2: "Bob" }), { seats: { g1: "B", g2: "A" }, names: { g1: "Bob", g2: "Ann" } });
 console.log("fpm-seats: all tests pass");
+// 2026-11-05: rejoin-by-name only within STALE_MS; longer-gone occupants' seats need re-admission
+{
+  const T = 1_000_000;
+  // occupant gone 5s: name-match reseats instantly
+  let r = S.plan({ seats: { g1: "fpmOld", g2: "" }, names: { g1: "Jerry", g2: "" }, here: { fpmNew: "Jerry" }, firstSeen: { fpmNew: T }, lastSeen: { fpmOld: T - 5000 }, now: T, autoAdmit: false });
+  assert.strictEqual(r.seats.g1, "fpmNew", "quick name-rejoin still seamless");
+  // occupant gone 2min: name-match must NOT fire; newcomer waits
+  r = S.plan({ seats: { g1: "fpmOld", g2: "" }, names: { g1: "Jerry", g2: "" }, here: { fpmNew: "Jerry" }, firstSeen: { fpmNew: T }, lastSeen: { fpmOld: T - 120000 }, now: T, autoAdmit: false });
+  assert.deepStrictEqual(r.waiting, ["fpmNew"], "long-gone: ask again");
+  assert.strictEqual(r.seats.g1, "fpmOld", "seat not silently taken");
+  console.log("fpm-seats: stale-rejoin tests pass");
+}
