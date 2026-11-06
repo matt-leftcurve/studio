@@ -215,3 +215,15 @@ both); synthetic casts on the deployed page: n=5 grid = 3+2 centered, n=9 grid =
 row-above ✔; badge rule (𝕏 only for @names) ✔. UNTESTED WITH A REAL GUEST: backstage strip tiles,
 Bring Onstage / Send Backstage clicks, guest view v2, share e2e on v2, OBS stage reload-on-admit
 timing — needs the phone drill or next dry run BEFORE any show.
+
+### 9.1 Audit completion pass (2026-11-06 afternoon)
+Additional PROVEN items: host share FULL CYCLE on v2 (button → picker → share layout in OBS with
+camera auto-moved to the column → stop → grid + full-band camera restored); intro mic-mute roundtrip
+(Starting Soon mutes, Onstage unmutes); Starting Soon render (intro art + real ticker); build-sync
+re-verified at 15:00. AUDIT CATCH: share-STOP left OBS stuck in share layout (stopped VDO :s streams
+stay "live" — pixel detection can never see a stop). Fixed: sharer is authoritative in the Stage URL
+(?sharer=, host page writes it; a toggle reloads the OBS source ~2-4s, accepted); people's views keep
+the instant postMessage path. Pixel-inference of share state is now BANNED by this spec (I-rule:
+share state has exactly one writer, the host page).
+Remaining real-guest-only items (unchanged): backstage strip live video, Bring Onstage / Send
+Backstage clicks, guest view v2, guest-side share, admit-reload timing, Drive ISO proof.
