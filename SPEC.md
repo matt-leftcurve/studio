@@ -198,3 +198,20 @@ controls. 4) OBS: create "Onstage" scene (native camera + Stage + Chat Overlay +
 TeachPanel + Platform Badges), retire Solo/Stage-SBS/Trio/Share (zz), camera transform per-slot.
 5) Dynamic tags/frames in stage.html; retro art overlay slimmed. 6) Parity harness run across
 n=0..9 synthetic cast + real-guest drill before any show.
+
+## 9. Onstage model — BUILT AND DEPLOYED 2026-11-05 ~19:45 (same evening as spec'd)
+Share rule v2 (Matt): >3 people = ONE ROW of everyone ABOVE the share, full-width share below;
+<=3 people = the legacy right column (pixel-identical). Max 8 guests (9 people).
+Shipped: fpm-layouts gridLayout/shareLayout/introStrip (tests n=1..9); fpm-seats v2 (ordered cast,
+blip-hold, device-switch, >60s re-ask, cap 8); stage.html v2 (cast-driven, dynamic frames/tags, share
+as state, single band overlay incl. the logo lockup — native Retro Logo Baked + Platform Badges items
+retired from air for host parity); fpm-guestview v2 (own tile by cast index, backstage self-preview
+with grey chip); fpm-scenes v2 (cast in Stage URL ?cast=JSON, backstage strip + Bring Onstage, hover
+Send Backstage, camera transform follows slot 0 in BOTH modes, share switches no scenes); OBS scene
+"Onstage" created (camera+Stage+Chat+Teach+Captions(off,EN)+Mic/Aux), program switched, Solo +
+Stage-SBS/Trio/Share retired (zz). Airable: Starting Soon, Onstage.
+AUDIT (rendered-pixel): host vs OBS parity shot n=1 identical (lockup/badges/tag/frame/ticker live
+both); synthetic casts on the deployed page: n=5 grid = 3+2 centered, n=9 grid = 5+4, n=9 share =
+row-above ✔; badge rule (𝕏 only for @names) ✔. UNTESTED WITH A REAL GUEST: backstage strip tiles,
+Bring Onstage / Send Backstage clicks, guest view v2, share e2e on v2, OBS stage reload-on-admit
+timing — needs the phone drill or next dry run BEFORE any show.
