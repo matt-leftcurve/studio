@@ -20,7 +20,7 @@ fi
 git push fpm deploy
 git push fpm deploy:main
 
-scp -q stage/retro-solo.html stage/retro-sbs.html stage/retro-trio.html "$MINI":obs-overlays/
+scp -q stage/retro-solo.html stage/retro-sbs.html stage/retro-trio.html stage/starting-soon.html "$MINI":obs-overlays/
 
 cd "$HOME/.local/share/fpm-tools" && node --input-type=module -e "
 import OBSWebSocket from 'obs-websocket-js';

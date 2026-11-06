@@ -134,7 +134,19 @@ the drill and the parity harness walk the REACHABLE cells. Parity harness = driv
 websocket/room, capture host view (window capture), OBS program (scene on program), guest view, and
 diff against §2 — automatable, run before every guest show.
 
-### 7.3 Open decisions from inventory pass #1 (2026-11-05) — each needs Matt's call or a contract
+### 7.3 Open decisions from inventory pass #1 — RESOLVED by Matt 2026-11-05 evening (history below)
+Resolutions: (1,3,4) legacy scenes RETIRED — renamed "zz …" (Guest-SBS/-Photo/-Trio/-Share, iPad1,
+Pocket, Tradingview, Browser1; host share replaced the chart scenes); airable set = Starting Soon, Solo,
+Stage-SBS/Trio/Share (+TeachPanel as a building block). (2) TeachPanel KEPT, in every airable scene;
+content only flows when the ZH caption bridge runs, so EN streams are naturally clean; mirroring it into
+the host view is on the build list. (5) Platform Badges KEPT — contract: present+enabled in Solo.
+(6) LocalVocal filter + source DELETED (one caption path only). (7) CAPTION LANGUAGE CONTRACT: EN stream =
+Captions scene items disabled + bridge not running; ZH stream = Captions items enabled in airable scenes +
+bridge up; preflight asserts whichever applies. (8) Starting Soon ticker = REAL prices — live crypto bar
+(same COINS + backoff) covers the decorative strip painted into bg-laoshi.png; file adopted into the fork
+(stage/starting-soon.html) and deploy-synced. (9) Retired Label Box/Text items deleted from Solo.
+
+Original questions (for history):
 1. **Retired Guest-* scenes + iPad1 + Pocket scene remain airable.** Proposal: prefix "zz " + move to a
    "retired" folder or delete; keep "Guest - SBS - Photo" only if the camera-less-guest flow still matters.
 2. **TeachPanel** is in every scene and was live during an English stream. Contract needed: follows
