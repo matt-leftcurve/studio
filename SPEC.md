@@ -108,3 +108,44 @@ live video.
   deploy sync; OBS keeps LOCAL copies for offline robustness, synced on every deploy.
 - Starting Soon decorative ticker shows fake green numbers — Matt to decide: real prices or art.
 - T2/T3/T4/T5/T7/T13-guest/T15 never proven with a real peer → first full drill pending.
+
+## 7. Systematic coverage — how this spec stays complete (added after Matt's challenge, 2026-11-05)
+
+A spec written from incidents is a lagging indicator. Completeness comes from three mechanical sources,
+re-run whenever the system changes; every discovered element must map to a contract above, an accepted
+divergence (§5), or land in §7.3 as an explicit open decision. "Not mentioned" is itself a spec violation.
+
+### 7.1 Inventories (enumerate, don't remember)
+- **OBS**: every scene, scene item, filter, input kind, audio track/monitor config (GetSceneList +
+  GetSceneItemList + GetSourceFilterList walk). Current count: 14 scenes — the matrix in §2 covered 6.
+- **Render files**: fork (stage/*.html, fpm-*.js, index/join) + mini ~/obs-overlays/*.html + SSN overlay.
+  Every file must have exactly ONE consumer chain or be deleted/archived.
+- **State writers**: who writes the Stage URL (host page only), camera transforms (host page), OBS config
+  (preflight), seat state (fpm-seats via host page). A second writer to anything = defect.
+- **Cache layers**: browser cache (ver= params), Pages CDN, OBS browser-source cache (&b build-sync),
+  overlay iframes (&b). Any cached artifact without a bust mechanism = defect.
+- **Audio routes**: per scene, the full source→track/monitor map (today: Mic/Aux global, Stage filtered,
+  Intro Music monitor+output, share audio via Stage).
+
+### 7.2 State-space matrix (test generation, not test listing)
+Dimensions: scene (airable set) × seated guests (0/1/2) × present guests (⊆ seated) × share
+(none/host/g1/g2) × per-guest camera (on/off) × stream (off/live). T1-T16 are samples from this product;
+the drill and the parity harness walk the REACHABLE cells. Parity harness = drive a state via
+websocket/room, capture host view (window capture), OBS program (scene on program), guest view, and
+diff against §2 — automatable, run before every guest show.
+
+### 7.3 Open decisions from inventory pass #1 (2026-11-05) — each needs Matt's call or a contract
+1. **Retired Guest-* scenes + iPad1 + Pocket scene remain airable.** Proposal: prefix "zz " + move to a
+   "retired" folder or delete; keep "Guest - SBS - Photo" only if the camera-less-guest flow still matters.
+2. **TeachPanel** is in every scene and was live during an English stream. Contract needed: follows
+   stream language? preflight toggle?
+3. **iPad input carries an ENABLED Source Record filter** — records whenever iPad1 airs. Wanted?
+4. **Duplicate "Retro Overlay" items (x3)** in Tradingview and Browser1 — dedupe or explain.
+5. **Platform Badges (Solo)** — specless; keep/kill?
+6. **LocalVocal filter on Mic/Aux + LocalVocal Subtitles source** — second caption path, both off;
+   delete to prevent accidental double captions?
+7. **Captions scene-item state per language plan** — contract: EN streams all caption items off;
+   ZH streams on in airable scenes; preflight asserts it.
+8. **Starting Soon decorative ticker** (fake green numbers) — real or art (pending since the sweep).
+9. **Legacy Label Box/Text items** disabled in several scenes — delete (retired 2026-10-21) or keep as
+   fallback?
