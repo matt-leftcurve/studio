@@ -134,21 +134,12 @@
 	stage.appendChild(introOv);
 
 	var current = "";   // "onstage" | "intro"
-	var sharer = "";    // sharing person's stream id ("FPMHOST" or fpm…), "" = no share
-	var sharerHint = null; // from the embedding page; OBS falls back to live detection
-
-	function liveShare() {
-		for (var sid in shareFrames) {
-			try {
-				var rp = shareFrames[sid].contentWindow.session.rpcs;
-				for (var U in rp) {
-					var st = rp[U] && (rp[U].streamSrc || (rp[U].videoElement && rp[U].videoElement.srcObject));
-					if (st && st.getVideoTracks && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; })) return sid;
-				}
-			} catch (e) {}
-		}
-		return "";
-	}
+	// Sharer is AUTHORITATIVE STATE, never inferred from pixels (2026-11-06 audit: a stopped VDO ':s'
+	// stream stays "live", so detection stuck OBS in share layout). OBS gets it from the URL (?sharer=,
+	// written by the host page — a share toggle reloads this source, ~2-4s, accepted); people's views
+	// get it instantly via postMessage from their page.
+	var sharer = q.get("sharer") || "";
+	var sharerHint = null;
 
 	function place(el, r, show) {
 		el.style.display = show ? "block" : "none";
@@ -210,9 +201,9 @@
 
 	setLayout(q.get("layout") === "intro" ? "intro" : "onstage");
 	setInterval(function () {
-		var now = sharerHint !== null ? sharerHint : liveShare();
-		if (now !== sharer) { sharer = now; apply(); }
-	}, 700);
+		if (sharerHint === null) return; // OBS: URL is the only truth
+		if (sharerHint !== sharer) { sharer = sharerHint; apply(); }
+	}, 300);
 
 	if (window.obsstudio) {
 		try { window.obsstudio.getCurrentScene(function (scene) { setLayout(layoutForScene(scene && scene.name)); }); } catch (e) {}

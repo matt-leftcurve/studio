@@ -101,9 +101,17 @@
 		}
 		return "";
 	}
+	function setStageSharer(sid) {
+		if (!stageUrl) return;
+		var u;
+		try { u = new URL(stageUrl); } catch (e) { return; }
+		if (sid) u.searchParams.set("sharer", sid); else u.searchParams.delete("sharer");
+		stageUrl = u.toString();
+		send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
+	}
 	setInterval(function () {
 		var now = liveShareId();
-		if (now !== sharing) { sharing = now; broadcast(); hoverRender(); }
+		if (now !== sharing) { sharing = now; setStageSharer(now); broadcast(); hoverRender(); camApply(); }
 	}, 300);
 
 	// ---------- broadcast ----------
@@ -136,7 +144,7 @@
 		if (!ws || ws.readyState !== 1 || !camItemId || !window.fpmLayouts) return;
 		var n = 1 + cast.length;
 		var r = sharing ? fpmLayouts.shareLayout(n).tiles[0] : fpmLayouts.gridLayout(n)[0];
-		var key = r.join(",");
+		var key = (sharing ? "s" : "g") + r.join(",");
 		if (key === camLastKey) return;
 		camLastKey = key;
 		send("SetSceneItemTransform", { sceneName: ONSTAGE_SCENE, sceneItemId: camItemId, sceneItemTransform: {
