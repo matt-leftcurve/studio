@@ -5,7 +5,9 @@
 <style>
   html,body{margin:0;padding:0;width:1920px;height:1080px;overflow:hidden;background:rgba(0,0,0,0);}
   /* top band: 马特老师 logo strip sliced from bg (y 0..165 @1920 scale) */
-  #topband{position:absolute;top:0;left:0;width:1920px;height:70px;
+  /* 165 tall since 2026-11-10: the Onstage band starts tiles at y165; the old 70px Solo band left a
+     95px black bar above the camera (band art and layout geometry must share the same edge) */
+  #topband{position:absolute;top:0;left:0;width:1920px;height:165px;
     background:linear-gradient(180deg,#10222c 0%,#0a161e 100%);
     border-bottom:3px solid rgba(201,161,95,0.8);box-shadow:0 4px 18px rgba(0,0,0,0.55);}
   /* bottom band: ticker strip sliced from bg (y 975..1080) */
@@ -13,7 +15,7 @@
     background-image:url("bg-laoshi.png");background-size:1920px 1080px;background-position:0 -975px;
     border-top:3px solid rgba(201,161,95,0.8);box-shadow:0 -4px 18px rgba(0,0,0,0.55);}
   /* social handles (same as main overlay) */
-  #social{position:absolute;right:40px;top:8px;text-align:right;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  #social{position:absolute;right:40px;top:42px;text-align:right;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
   #social .row{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:5px;}
   #social .icon{font-weight:800;font-size:17px;color:#0b1a20;background:#7fd4c1;border-radius:4px;
     width:23px;height:23px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(127,212,193,0.35);}
@@ -46,7 +48,7 @@
   <div id="topband"></div>
   <!-- 2026-11-05 Onstage: logo lockup moved INTO the shared overlay (was the native "Retro Logo
        Baked" OBS item, which the host view could never see — SPEC I9 parity) -->
-  <div id="lockup" style="position:absolute;left:18px;top:6px;display:flex;align-items:center;gap:16px;">
+  <div id="lockup" style="position:absolute;left:18px;top:22px;display:flex;align-items:center;gap:16px;">
     <img src="laoshi_logo.png" style="height:118px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.6));">
     <div style="border-left:4px solid #e8884f;padding-left:14px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
       <div style="color:#7fd4c1;font-size:26px;font-weight:800;letter-spacing:3px;text-shadow:0 0 12px rgba(127,212,193,0.4);">FULLPORTMATT</div>
