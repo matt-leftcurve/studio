@@ -26,7 +26,7 @@
 
 	// Share layout: the right column splits among whoever is present (host + 0..2 guests).
 	// n=3 reproduces the original fixed grid exactly (y 165/439/713, h 262).
-	var SHARE_COL = { x: 1395, top: 165, w: 525, total: 850, gap: 12 };
+	var SHARE_COL = { x: 1395, top: 85, w: 525, total: 930, gap: 12 };
 	function shareSlots(n) {
 		n = Math.max(1, Math.min(3, n));
 		var h = Math.round((SHARE_COL.total - SHARE_COL.gap * (n - 1)) / n);
@@ -50,7 +50,7 @@
 	// No share: 1 row up to 3 people, else 2 rows (even: split evenly; odd: ceil on top — 5 -> 3+2).
 	// Share, up to 3 people: screen left + the proven right-hand column. More than 3: EVERYONE in ONE ROW
 	// ABOVE the screenshare (Matt's rule 2026-11-05), share takes the full width below. Minimum rows always.
-	var STAGE_BAND = { top: 165, h: 850, w: 1920, gap: 15 }; // h 850 since 2026-11-10 (bottom band slimmed to 65)
+	var STAGE_BAND = { top: 85, h: 930, w: 1920, gap: 15 }; // 2026-11-10: top band back to 70 (+15 gap), bottom 65 — stage = 85..1015
 	function rowSplit(n) { if (n <= 3) return [n]; var a = Math.ceil(n / 2); return [a, n - a]; }
 	function gridLayout(n) {
 		n = Math.max(1, Math.min(9, n));
