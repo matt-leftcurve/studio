@@ -11,7 +11,8 @@
     background:linear-gradient(180deg,#10222c 0%,#0a161e 100%);
     border-bottom:3px solid rgba(201,161,95,0.8);box-shadow:0 4px 18px rgba(0,0,0,0.55);}
   /* bottom band: ticker strip sliced from bg (y 975..1080) */
-  #botband{position:absolute;bottom:0;left:0;width:1920px;height:105px;
+  /* 65 tall + ticker flush since 2026-11-10 (Matt: footer all the way down); stage band grew to 850 to meet it */
+  #botband{position:absolute;bottom:0;left:0;width:1920px;height:65px;
     background-image:url("bg-laoshi.png");background-size:1920px 1080px;background-position:0 -975px;
     border-top:3px solid rgba(201,161,95,0.8);box-shadow:0 -4px 18px rgba(0,0,0,0.55);}
   /* social handles (same as main overlay) */
@@ -22,7 +23,7 @@
   #social .icon.yt{background:#ff6b5e;color:#0b1a20;font-size:10px;letter-spacing:0;}
   #social .handle{color:#9fe0d0;font-size:17px;font-weight:700;letter-spacing:1px;text-shadow:0 0 8px rgba(127,212,193,0.4);}
   /* live ticker over the bottom band (same geometry as main overlay, shifted into band coords) */
-  #ticker{position:absolute;left:250px;bottom:50px;width:1360px;height:58px;background:#0a161e;
+  #ticker{position:absolute;left:250px;bottom:4px;width:1360px;height:58px;background:#0a161e;
     display:flex;align-items:stretch;overflow:hidden;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
   .seg{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;
     border-left:2px solid #3a4a44;transform:skewX(-14deg);margin-left:4px;background:#0d1a14;
