@@ -54,6 +54,10 @@
 	function rowSplit(n) { if (n <= 3) return [n]; var a = Math.ceil(n / 2); return [a, n - a]; }
 	function gridLayout(n) {
 		n = Math.max(1, Math.min(9, n));
+		// Solo = the FULL CANVAS, bands overlay the video (Matt, 2026-11-10: the 810-band window crops
+		// ~43% of the sensor height; the classic Solo look is uncropped full-frame). Grids/tiles can't
+		// avoid the band window; solo can.
+		if (n === 1) return [[0, 0, 1920, 1080]];
 		var rows = rowSplit(n);
 		var rh = (STAGE_BAND.h - STAGE_BAND.gap * (rows.length - 1)) / rows.length;
 		var cols = Math.max.apply(null, rows);

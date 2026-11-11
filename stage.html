@@ -160,13 +160,14 @@
 		} else {
 			rects = LGEO.gridLayout(n);
 		}
+		var soloFull = !intro && !sharer && n === 1; // full-canvas solo: no tile frame/tag (classic Solo look)
 		people.forEach(function (p, i) {
 			place(panels[i], rects[i], true);
 			panels[i].style.zIndex = intro ? "20" : "";
 			panels[i].style.borderRadius = intro ? "10px" : "";
-			place(frames[i], rects[i], !intro);
+			place(frames[i], rects[i], !intro && !(soloFull && i === 0));
 			var tg = tags[i];
-			if (intro) { tg.style.display = "none"; }
+			if (intro || (soloFull && i === 0)) { tg.style.display = "none"; }
 			else {
 				tg.style.display = "flex";
 				tg.style.left = (rects[i][0] + 14) + "px";

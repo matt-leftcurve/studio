@@ -16,15 +16,15 @@ console.log("fpm-layouts: all tests pass");
 assert.deepStrictEqual(L.rowSplit(1), [1]); assert.deepStrictEqual(L.rowSplit(3), [3]);
 assert.deepStrictEqual(L.rowSplit(4), [2,2]); assert.deepStrictEqual(L.rowSplit(5), [3,2]);
 assert.deepStrictEqual(L.rowSplit(6), [3,3]); assert.deepStrictEqual(L.rowSplit(9), [5,4]);
-// solo grid = full stage band; clamp at 9
-assert.deepStrictEqual(L.gridLayout(1), [[0,165,1920,810]]);
+// solo grid = FULL CANVAS (bands overlay, no crop); clamp at 9
+assert.deepStrictEqual(L.gridLayout(1), [[0,0,1920,1080]]);
 assert.strictEqual(L.gridLayout(12).length, 9, "clamped to 9");
 // 2 people ~ SBS halves
 {const g=L.gridLayout(2); assert.strictEqual(g.length,2); assert.strictEqual(g[0][3],810); assert.ok(Math.abs(g[0][2]-952)<=2);}
 // 5 people: 3 top 2 bottom, bottom centered, uniform width
 {const g=L.gridLayout(5); assert.strictEqual(g.length,5); assert.ok(g[3][0]>g[0][0]); assert.strictEqual(g[0][2],g[4][2]);}
 // all counts: tiles inside the band, no overlap with share rules
-for (const n of [1,2,3,4,5,6,7,8,9]) {
+for (const n of [2,3,4,5,6,7,8,9]) { // n=1 is full-canvas by design
   for (const t2 of L.gridLayout(n)) assert.ok(t2[0]>=0&&t2[1]>=165&&t2[0]+t2[2]<=1921&&t2[1]+t2[3]<=976, `grid in band n=${n}`);
 }
 // share <=3 people: legacy column pixel-for-pixel
