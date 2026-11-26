@@ -43,7 +43,7 @@
 		overlay.setAttribute("role", "status");
 		overlay.setAttribute("aria-live", "polite");
 		overlay.innerHTML =
-			'<div class="fpm-hold__wordmark"><span class="fpm-hold__name">FULLPORTMATT</span><span class="fpm-hold__sub">Studio</span></div>' +
+			'<div class="fpm-hold__wordmark"><span class="fpm-hold__name">longshortmatt</span><span class="fpm-hold__sub">Studio</span></div>' +
 			'<div class="fpm-hold__orb" aria-hidden="true"><span class="fpm-hold__ring"></span><span class="fpm-hold__ring"></span><span class="fpm-hold__ring"></span><span class="fpm-hold__disc"></span></div>' +
 			'<span class="fpm-hold__eyebrow">Green room</span>' +
 			'<h1 class="fpm-hold__title">You\u2019re <em>all set</em></h1>' +

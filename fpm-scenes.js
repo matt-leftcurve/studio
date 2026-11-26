@@ -198,7 +198,7 @@
 			box.style.cssText = "position:relative;width:240px;height:168px;border-radius:10px;overflow:hidden;background:#0e1a2b;box-shadow:0 0 0 3px #5a606a,0 8px 24px rgba(0,0,0,.6)";
 			var f = document.createElement("iframe");
 			f.allow = "autoplay";
-			f.src = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(params.get("room") || "fpmshow") + "&cover&noaudio&viewheight=360&videobitrate=500&label=Full_Port_Matt";
+			f.src = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(params.get("room") || "fpmshow") + "&cover&noaudio&viewheight=360&videobitrate=500&label=LongShortMatt";
 			f.style.cssText = "position:absolute;left:0;top:0;width:100%;height:135px;border:0;pointer-events:none";
 			box.appendChild(f);
 			var chip = document.createElement("div");

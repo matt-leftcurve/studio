@@ -204,7 +204,7 @@
 		hold.setAttribute("role", "status");
 		hold.setAttribute("aria-live", "polite");
 		hold.innerHTML =
-			'<div class="fpm-upload-hold__wordmark"><span class="fpm-upload-hold__name">FULLPORTMATT</span><span class="fpm-upload-hold__sub">Studio</span></div>' +
+			'<div class="fpm-upload-hold__wordmark"><span class="fpm-upload-hold__name">longshortmatt</span><span class="fpm-upload-hold__sub">Studio</span></div>' +
 			'<svg class="fpm-upload-hold__icon" viewBox="0 0 24 24" aria-hidden="true" id="fpmUploadHoldIcon"></svg>' +
 			'<span class="fpm-upload-hold__eyebrow" id="fpmUploadHoldEyebrow"></span>' +
 			'<h1 class="fpm-upload-hold__title" id="fpmUploadHoldTitle"></h1>' +

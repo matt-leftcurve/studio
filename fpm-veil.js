@@ -35,7 +35,7 @@
 		veil.setAttribute("role", "status");
 		veil.setAttribute("aria-live", "polite");
 		veil.innerHTML =
-			'<div class="fpm-veil__wordmark"><span class="fpm-veil__name">FULLPORTMATT</span><span class="fpm-veil__sub">Studio</span></div>' +
+			'<div class="fpm-veil__wordmark"><span class="fpm-veil__name">longshortmatt</span><span class="fpm-veil__sub">Studio</span></div>' +
 			'<div class="fpm-veil__orb" aria-hidden="true"><span class="fpm-veil__ring"></span><span class="fpm-veil__ring"></span><span class="fpm-veil__disc"></span></div>' +
 			'<span class="fpm-veil__eyebrow">Guest entrance</span>' +
 			'<h1 class="fpm-veil__title">Entering the <em>studio</em>…</h1>' +

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="robots" content="noindex" />
-<title>FULLPORTMATT stage</title>
+<title>longshortmatt stage</title>
 <style>
 	html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 	#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
@@ -27,7 +27,7 @@
 </head>
 <body>
 <div id="stage"></div>
-<script src="fpm-layouts.js?v=11-10-20-44"></script>
+<script src="fpm-layouts.js?v=11-25-23-16"></script>
 <script>
 // FULLPORTMATT stage v2 (2026-11-05, SPEC v2 "Onstage"): ONE definition of the stage for OBS, host
 // and guests. The cast (onstage guests, ordered, Matt implicit first) arrives via ?cast=<JSON
@@ -46,7 +46,7 @@
 	var HOST = q.get("host") || "FPMHOST";
 	var SELF = q.get("self") || ""; // this person's own id: their tile (and own share) stays transparent
 	var BUILD = q.get("b") || "";
-	var HOSTTAG = q.get("hosttag") || "@FullPortMatt";
+	var HOSTTAG = q.get("hosttag") || "@LongShortMatt";
 
 	function parseCast() {
 		try {
@@ -63,7 +63,7 @@
 	var people = [["__host", HOSTTAG]].concat(cast); // index 0 = Matt, always
 
 	function viewUrl(id) {
-		var u = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(ROOM) + "&cover&label=Full_Port_Matt&opusbitrate=128";
+		var u = "./?view=" + encodeURIComponent(id) + "&scene&room=" + encodeURIComponent(ROOM) + "&cover&label=LongShortMatt&opusbitrate=128";
 		if (!AUDIO) u += "&noaudio";
 		if (q.get("dpr")) u += "&dpr=" + encodeURIComponent(q.get("dpr"));
 		if (q.get("maxh")) u += "&viewheight=" + encodeURIComponent(q.get("maxh")) + "&nohiddensceneoptimization";
@@ -184,7 +184,7 @@
 		}
 		bandOv.style.display = intro ? "none" : "block";
 		introOv.style.display = intro ? "block" : "none";
-		document.title = "FULLPORTMATT stage · " + (intro ? "intro" : sharer ? "share" : "grid") + " · " + n;
+		document.title = "longshortmatt stage · " + (intro ? "intro" : sharer ? "share" : "grid") + " · " + n;
 	}
 
 	function setLayout(name) {
