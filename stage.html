@@ -27,7 +27,7 @@
 </head>
 <body>
 <div id="stage"></div>
-<script src="fpm-layouts.js?v=11-27-20-53"></script>
+<script src="fpm-layouts.js?v=11-27-20-14"></script>
 <script>
 // FULLPORTMATT stage v2 (2026-11-05, SPEC v2 "Onstage"): ONE definition of the stage for OBS, host
 // and guests. The cast (onstage guests, ordered, Matt implicit first) arrives via ?cast=<JSON
@@ -124,7 +124,7 @@
 
 	// overlays: intro art for the intro layout only. 2026-11-27: the Onstage band art (retro-solo:
 	// top/bottom bands, 马特老师 lockup, ticker, social handles) is gone; the lacquer frame is an OBS
-	// source above Stage and every Onstage layout fits its opening (fpmLayouts.SAFE, SPEC §9.4).
+	// source above Stage; tiles bleed under the frame border (fpmLayouts.OUTER, SPEC §9.4).
 	function ovSrc(p) { return p + "?b=" + encodeURIComponent(BUILD); }
 	var introOv = document.createElement("iframe");
 	introOv.className = "overlay";
@@ -164,7 +164,7 @@
 		} else {
 			rects = LGEO.gridLayout(n);
 		}
-		var soloFull = !intro && !sharer && !gfx && n === 1; // solo (frame-safe rect): no tile frame/tag, the lacquer frame is the border
+		var soloFull = !intro && !sharer && !gfx && n === 1; // full-canvas solo: no tile frame/tag, camera bleeds under the frame
 		people.forEach(function (p, i) {
 			place(panels[i], rects[i], true);
 			panels[i].style.zIndex = intro ? "20" : "";
@@ -174,8 +174,9 @@
 			if (intro || (soloFull && i === 0)) { tg.style.display = "none"; }
 			else {
 				tg.style.display = "flex";
-				tg.style.left = (rects[i][0] + 14) + "px";
-				tg.style.top = (rects[i][1] + rects[i][3] - 44) + "px";
+				var tp = LGEO.tagPos(rects[i]);
+				tg.style.left = tp[0] + "px";
+				tg.style.top = tp[1] + "px";
 			}
 		});
 		if (shareRect) {

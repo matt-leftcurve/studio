@@ -3,67 +3,121 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const L = require("../fpm-layouts.js");
 import assert from "assert";
-// frame-safe rect (SPEC §9.4): lacquer frame opening x37..1882 y87..1042, inset 16
-assert.deepStrictEqual(L.SAFE, {x:53,y:103,w:1814,h:924}, "SAFE = opening - FRAME_PAD");
-assert.deepStrictEqual(L.shareSlots(3), [[1342,103,525,300],[1342,415,525,300],[1342,727,525,300]], "n=3 column (SAFE 103..1027)");
-assert.deepStrictEqual(L.shareSlots(2), [[1342,103,525,456],[1342,571,525,456]], "n=2 halves");
-assert.deepStrictEqual(L.shareSlots(1), [[1342,103,525,924]], "n=1 full column");
-assert.deepStrictEqual(L.camBounds(0), {x:2684,y:206,w:1050,h:1848});
-assert.deepStrictEqual(L.camBounds(1), {x:2684,y:206,w:1050,h:912});
-assert.deepStrictEqual(L.camBounds(2), {x:2684,y:206,w:1050,h:600});
+
+assert.deepStrictEqual(L.FRAME_OPENING, {x:37,y:87,w:1846,h:956,r:25});
+assert.strictEqual(L.FRAME_BLEED, 20);
+assert.deepStrictEqual(L.OUTER, {x:17,y:67,w:1886,h:996}, "OUTER = opening + 20px bleed");
 assert.ok(L.PANELS.solo.host && L.PANELS.trio.g2 && L.OVERLAYS.share, "panel/overlay tables present");
 assert.strictEqual(L.TAG_INSET, 57);
 console.log("fpm-layouts: all tests pass");
+
 // ===== Onstage model (SPEC v2, Matt 2026-11-05; share rule v2: row-above-share for >3) =====
 assert.deepStrictEqual(L.rowSplit(1), [1]); assert.deepStrictEqual(L.rowSplit(3), [3]);
 assert.deepStrictEqual(L.rowSplit(4), [2,2]); assert.deepStrictEqual(L.rowSplit(5), [3,2]);
 assert.deepStrictEqual(L.rowSplit(6), [3,3]); assert.deepStrictEqual(L.rowSplit(9), [5,4]);
-// solo grid = the whole frame-safe rect (2026-11-27; was full canvas under the bands); clamp at 9
-assert.deepStrictEqual(L.gridLayout(1), [[53,103,1814,924]]);
+// solo = FULL CANVAS so the camera bleeds under the frame (Matt 2026-11-27 evening)
+assert.deepStrictEqual(L.gridLayout(1), [[0,0,1920,1080]]);
 assert.strictEqual(L.gridLayout(12).length, 9, "clamped to 9");
-// 2 people ~ SBS halves
-{const g=L.gridLayout(2); assert.strictEqual(g.length,2); assert.strictEqual(g[0][3],924); assert.ok(Math.abs(g[0][2]-900)<=2);}
-// 5 people: 3 top 2 bottom, bottom centered, uniform width
-{const g=L.gridLayout(5); assert.strictEqual(g.length,5); assert.ok(g[3][0]>g[0][0]); assert.ok(Math.abs(g[0][2]-g[4][2])<=1, "uniform width (edge rounding: ±1px)");}
-// all counts: tiles inside the band, no overlap with share rules
-for (const n of [1,2,3,4,5,6,7,8,9]) {
-  for (const t2 of L.gridLayout(n)) assert.ok(t2[0]>=53&&t2[1]>=103&&t2[0]+t2[2]<=1867&&t2[1]+t2[3]<=1027, `grid in SAFE n=${n}`);
-}
-// share <=3 people: legacy column pixel-for-pixel
-{const s3=L.shareLayout(3); assert.deepStrictEqual(s3.tiles, L.shareSlots(3)); assert.deepStrictEqual(s3.share,[53,103,1274,924]);}
-{const s1=L.shareLayout(1); assert.deepStrictEqual(s1.tiles, L.shareSlots(1));}
-// share >3 people: ONE ROW above, share full width below
-for (const n of [4,5,7,9]) {
-  const sh=L.shareLayout(n);
-  assert.strictEqual(sh.tiles.length,n);
-  assert.ok(sh.tiles.every(t2=>t2[1]===103), `single row n=${n}`);
-  assert.strictEqual(sh.share[0],53); assert.strictEqual(sh.share[2],1814, "share full SAFE width");
-  assert.ok(sh.share[1]>103 && sh.share[1]+sh.share[3]<=1027, "share below row, inside SAFE");
-  assert.ok(sh.share[3]>=400, `share keeps height n=${n}: ${sh.share[3]}`);
-}
+// 2 people: halves, full bleed height, inner gutter 15
+{const g=L.gridLayout(2); assert.strictEqual(g.length,2); assert.strictEqual(g[0][3],996); assert.ok(Math.abs(g[0][2]-936)<=2); assert.strictEqual(g[1][0]-(g[0][0]+g[0][2]),15);}
+// 5 people: 3 top 2 bottom; bottom row outer edges bleed to OUTER (fills the side margins)
+{const g=L.gridLayout(5); assert.strictEqual(g.length,5); assert.strictEqual(g[3][0],L.OUTER.x); assert.strictEqual(g[4][0]+g[4][2],L.OUTER.x+L.OUTER.w);}
 console.log("fpm-layouts: Onstage v2 tests pass");
-// ===== Lacquer frame fit (SPEC §9.4): EVERY Onstage rect + its name tag inside the frame opening,
-// clear of the rounded corners, integer pixels =====
+
+// ===== Lacquer frame bleed (SPEC §9.4): tiles cover the opening and extend under the border =====
 {
-  const O=L.FRAME_OPENING, S=L.SAFE;
-  const inCorner=(px,py)=>{ // is (px,py) inside the rounded opening?
+  const O=L.FRAME_OPENING, U=L.OUTER, B=L.FRAME_BLEED;
+  const inOpening=(px,py)=>{
+    if (px<O.x||py<O.y||px>O.x+O.w||py>O.y+O.h) return false;
     const cx=Math.min(Math.max(px,O.x+O.r),O.x+O.w-O.r), cy=Math.min(Math.max(py,O.y+O.r),O.y+O.h-O.r);
     return (px-cx)**2+(py-cy)**2 <= O.r*O.r;
   };
-  const check=(r,what)=>{
-    assert.ok(r.every(Number.isInteger), `${what}: integer rect ${r}`);
-    assert.ok(r[0]>=S.x&&r[1]>=S.y&&r[0]+r[2]<=S.x+S.w&&r[1]+r[3]<=S.y+S.h, `${what}: inside SAFE ${r}`);
-    for (const [px,py] of [[r[0],r[1]],[r[0]+r[2],r[1]],[r[0],r[1]+r[3]],[r[0]+r[2],r[1]+r[3]]])
-      assert.ok(inCorner(px,py), `${what}: corner ${px},${py} clear of the frame radius`);
+  const contains=(r,px,py)=>px>=r[0]&&px<=r[0]+r[2]&&py>=r[1]&&py<=r[1]+r[3];
+  const insideCanvas=(r)=>r[0]>=0&&r[1]>=0&&r[0]+r[2]<=1920&&r[1]+r[3]<=1080;
+  const insideOuter=(r)=>r[0]>=U.x&&r[1]>=U.y&&r[0]+r[2]<=U.x+U.w&&r[1]+r[3]<=U.y+U.h;
+
+  const checkRect=(r,what,fullCanvas)=>{
+    assert.ok(r.every(Number.isInteger), `${what}: integer ${r}`);
+    assert.ok(insideCanvas(r), `${what}: on canvas ${r}`);
+    if (!fullCanvas) assert.ok(insideOuter(r), `${what}: inside OUTER ${r}`);
   };
-  const tag=(r)=>[r[0]+14, r[1]+r[3]-44, 200, 38]; // stage.html tag box (left/top), ~38px tall
-  for (let n=1;n<=9;n++) {
-    L.gridLayout(n).forEach((r,i)=>{check(r,`grid n=${n} #${i}`); if (n>1&&r[3]>=60) check(tag(r).map((v,k)=>k===2?Math.min(v,r[2]-28):v),`grid tag n=${n} #${i}`);});
-    const sh=L.shareLayout(n); check(sh.share,`share n=${n}`); sh.tiles.forEach((r,i)=>check(r,`share tile n=${n} #${i}`));
-    const g=L.graphicLayout(n); check(g.panel,`gfx panel n=${n}`); g.tiles.forEach((r,i)=>check(r,`gfx tile n=${n} #${i}`));
-    assert.strictEqual(g.panel[2], 744, "gfx panel keeps 744 wide");
-    g.tiles.forEach(r=>assert.ok(r[0]>=g.panel[0]+g.panel[2]+L.STAGE_BAND.gap, `gfx tiles right of the panel n=${n}`));
+
+  const tagInside=(r,what)=>{
+    const tp=L.tagPos(r);
+    assert.ok(tp.every(Number.isInteger), `${what}: integer tag`);
+    assert.ok(inOpening(tp[0],tp[1]), `${what}: tag origin ${tp} in opening`);
+    assert.ok(contains(r,tp[0],tp[1]), `${what}: tag origin ${tp} on tile`);
+    // 44px-tall tag stays in the opening (width varies with the name; origin is what we place)
+    assert.ok(inOpening(tp[0],tp[1]+L.TAG_H-1), `${what}: tag bottom in opening`);
+  };
+
+  // no black between tiles and the frame: every point near the opening's inner edge
+  // (including the rounded corners) is covered by a rect. Gutters between tiles are fine.
+  const nearFrame=(x,y)=>{
+    if (!inOpening(x,y)) return false;
+    const d=Math.min(x-O.x,O.x+O.w-x,y-O.y,O.y+O.h-y);
+    if (d<=8) return true;
+    const cx=Math.min(Math.max(x,O.x+O.r),O.x+O.w-O.r), cy=Math.min(Math.max(y,O.y+O.r),O.y+O.h-O.r);
+    return (x-cx)**2+(y-cy)**2 >= (O.r-8)*(O.r-8);
+  };
+  const coverOpening=(rects,what)=>{
+    const step=3;
+    for (let y=O.y;y<=O.y+O.h;y+=step) {
+      for (let x=O.x;x<=O.x+O.w;x+=step) {
+        if (!nearFrame(x,y)) continue;
+        if (rects.some(r=>contains(r,x,y))) continue;
+        const gap=16;
+        const near=rects.filter(r=>x>=r[0]-gap&&x<=r[0]+r[2]+gap&&y>=r[1]-gap&&y<=r[1]+r[3]+gap);
+        assert.ok(near.length>=2, `${what}: black at ${x},${y} against the frame (not a gutter)`);
+      }
+    }
+  };
+
+  // solo is full canvas (4K 0,0,3840x2160)
+  assert.deepStrictEqual(L.gridLayout(1), [[0,0,1920,1080]]);
+
+  for (let n=2;n<=9;n++) {
+    const g=L.gridLayout(n);
+    g.forEach((r,i)=>{checkRect(r,`grid n=${n} #${i}`); tagInside(r,`grid tag n=${n} #${i}`);});
+    coverOpening(g,`grid n=${n}`);
+    // outer edges reach OUTER
+    assert.ok(Math.min(...g.map(r=>r[0]))===U.x, `grid n=${n} left bleed`);
+    assert.ok(Math.max(...g.map(r=>r[0]+r[2]))===U.x+U.w, `grid n=${n} right bleed`);
+    assert.ok(Math.min(...g.map(r=>r[1]))===U.y, `grid n=${n} top bleed`);
+    assert.ok(Math.max(...g.map(r=>r[1]+r[3]))===U.y+U.h, `grid n=${n} bottom bleed`);
   }
-  assert.deepStrictEqual(L.graphicLayout(1), {panel:[53,103,744,924], tiles:[[812,103,1055,924]]});
+
+  // share
+  assert.deepStrictEqual(L.shareLayout(3).tiles, L.shareSlots(3));
+  assert.deepStrictEqual(L.shareLayout(1).share, [17,67,1326,996]);
+  assert.deepStrictEqual(L.shareLayout(1).tiles, [[1358,67,545,996]]);
+  assert.deepStrictEqual(L.camBounds(0), {x:2716,y:134,w:1090,h:1992});
+  assert.deepStrictEqual(L.camBounds(1), {x:2716,y:134,w:1090,h:984});
+  assert.deepStrictEqual(L.camBounds(2), {x:2716,y:134,w:1090,h:662});
+  for (const n of [1,2,3,4,5,7,9]) {
+    const sh=L.shareLayout(n);
+    checkRect(sh.share,`share n=${n}`);
+    sh.tiles.forEach((r,i)=>{checkRect(r,`share tile n=${n} #${i}`); tagInside(r,`share tag n=${n} #${i}`);});
+    coverOpening([sh.share].concat(sh.tiles),`share n=${n}`);
+    if (n>=4) {
+      assert.strictEqual(sh.tiles.length,n);
+      assert.ok(sh.tiles.every(t=>t[1]===U.y), `share row at OUTER top n=${n}`);
+      assert.strictEqual(sh.share[0],U.x);
+      assert.strictEqual(sh.share[2],U.w, "share full OUTER width");
+      assert.ok(sh.share[3]>=400, `share keeps height n=${n}: ${sh.share[3]}`);
+    }
+  }
+
+  // live graphics: panel keeps 744 content width + left bleed; tiles stay right of it
+  for (let n=1;n<=9;n++) {
+    const g=L.graphicLayout(n);
+    checkRect(g.panel,`gfx panel n=${n}`);
+    g.tiles.forEach((r,i)=>{checkRect(r,`gfx tile n=${n} #${i}`); if (r[3]>=60) tagInside(r,`gfx tag n=${n} #${i}`);});
+    assert.strictEqual(g.panel[0], U.x, `gfx panel left bleed n=${n}`);
+    assert.strictEqual(g.panel[2], 744+B, `gfx panel 744 + left bleed n=${n}`);
+    g.tiles.forEach(r=>assert.ok(r[0]>=g.panel[0]+g.panel[2], `gfx tiles right of the panel n=${n}`));
+    coverOpening([g.panel].concat(g.tiles),`gfx n=${n}`);
+  }
+  assert.deepStrictEqual(L.graphicLayout(1), {panel:[17,67,764,996], tiles:[[796,67,1107,996]]});
 }
-console.log("fpm-layouts: lacquer frame-fit tests pass");
+console.log("fpm-layouts: lacquer frame-bleed tests pass");

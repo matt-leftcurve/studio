@@ -249,13 +249,15 @@ band, 马特老师 lockup, social handles, scanlines/shine). The retro-* files s
 copies them; retired zz scenes only). Title on the frame = "LONG SHORT MATT" + X mark, intended.
 Geometry (`fpm-layouts.js`, I2): frame opening measured over the full loop = x 37..1882,
 y 82-87..1042, corner radius ~25 (page units; 4K = 2x). `FRAME_OPENING` uses the worst-case top
-(87); `SAFE` = opening inset by `FRAME_PAD` 16 = **x 53, y 103, w 1814, h 924** (4K x106 y206
-w3628 h1848); 16 also clears the rounded corners. `STAGE_BAND` = SAFE (+gap 15), so EVERY Onstage
-layout sits inside it: solo = the whole SAFE rect (no longer full canvas); grids n=2..9 as before
-inside SAFE; share <=3 = share [53,103,1274,924] + column x 1342 w 525 (`SHARE_COL`, flush right);
-share >3 = row above + full-width share; graphic = panel [53,103,744,924] + people right of it
-(n=1 tile [812,103,1055,924], 4K x1624 y206 w2110 h1848); the camera transform (tiles[0] x2) follows.
-Name tags (x+14, bottom-44) are inside their tile, hence inside the opening. With the frame off
-the layouts are unchanged (canvas shows around the inset rect) — one geometry, frame on or off.
-Intro strip (Starting Soon, no frame) unchanged. Tests assert every rect + tag inside SAFE and
-clear of the corner radius.
+(87). Tiles are laid out in that opening, then `bleedOuter` grows any outer edge by
+`FRAME_BLEED` 20 under the border (`OUTER` = **x 17, y 67, w 1886, h 996**, 4K x34 y134
+w3772 h1992) so no black shows in the opening or at the rounded corners; inner gutters stay put.
+**Solo** is the full canvas again ([0,0,1920,1080], 4K 0,0,3840x2160) so the native camera bleeds
+under the whole frame (Matt, 2026-11-27 evening: no black gap). Grids n=2..9, share and
+graphicLayout follow the same bleed: share <=3 = share [17,67,1326,996] + column [1358,67,545,996];
+share >3 = row above + full-width share; graphic panel [17,67,764,996] (744 + left bleed) + people
+right of it (n=1 tile [796,67,1107,996], 4K x1592 y134 w2214 h1992). Camera transform (tiles[0] x2)
+follows. Name tags use `tagPos()`: bottom-left of the tile, clamped into the visible opening so a
+bled tile does not hide its tag. Intro strip (Starting Soon, no frame) unchanged. Tests assert
+solo is full canvas, outer edges reach OUTER, the opening's inner edge (including rounded
+corners) is covered, and tags stay in the opening.
