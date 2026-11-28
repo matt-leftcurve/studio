@@ -23,17 +23,18 @@ live video.
   a replaced person's old handle never survives onto their successor.
 - **I5 No blank boxes.** An empty or video-dead seat renders nothing in tile layouts (solo PiP,
   intro, share tiles) in every view; SBS/Trio hold a seated-but-reconnecting guest's slot.
-- **I6 Ticker.** Every airable scene shows live prices within ~60 s of becoming active, in host
-  view and program alike; 429s back off and self-heal; "--" on air is a defect (exception:
-  Starting Soon's decorative ticker — decision pending, see Open).
+- **I6 Ticker.** Every airable scene that HAS a ticker shows live prices within ~60 s of becoming
+  active, in host view and program alike; 429s back off and self-heal; "--" on air is a defect.
+  Since 2026-11-27 (§9.4) Onstage has no ticker (the band art carrying it is gone); Starting Soon
+  keeps its real-price ticker.
 - **I7 Native camera follows layout.** In Stage - Share the camera's OBS transform matches the
   column split for the current present-count (solo 1620 / one 798 / two 524, 4K units) BEFORE the
   scene airs.
 - **I8 Audio routing per scene.** Intro: audience hears music only, mic muted. Solo: Matt (+
   Safari audio by 11-05 decision). Stage scenes: Matt + present guests + active share audio
   (tab shares). Nothing reaches the audience twice; nothing intended is missing.
-- **I9 View parity.** The host view renders every element the stage page gives OBS: band art,
-  logo, tags, tiles, share, ticker. OBS-native-only layers are the explicit exceptions list
+- **I9 View parity.** The host view renders every element the stage page gives OBS: tags,
+  tiles, share (band art / logo / ticker retired from Onstage 2026-11-27, §9.4). OBS-native-only layers are the explicit exceptions list
   (§5) and nothing else.
 - **I10 Recording.** Streaming ⇒ program .mov + FX3 card recording; each guest ⇒ one Drive ISO
   from join to stop; no recordings of empty sources.
@@ -239,3 +240,22 @@ sets `gfx=1` in the Stage URL + `gfx` on the `fpmStage` broadcast (host page sta
 writer). Stage geometry: `graphicLayout(n)` in `fpm-layouts.js`: 744x930 graphic panel on the left
 of the band, people packed right as 16:9 tiles. The card itself is the OBS browser source
 `<server>/onair` (transparent except the panel). Share wins over a graphic.
+
+### 9.4 Lacquer frame fit, 2026-11-27 (Matt)
+The animated "LSM Frame (wander 120s)" WebM is an OBS media source in Onstage ABOVE Stage and the
+camera, BELOW Chat Overlay and TeachPanel (TeachPanel stays above the frame, Matt). The old Onstage
+band art is REMOVED: stage.html no longer loads `stage/retro-solo.html` (top band, bottom ticker
+band, 马特老师 lockup, social handles, scanlines/shine). The retro-* files stay on disk (deploy.sh
+copies them; retired zz scenes only). Title on the frame = "LONG SHORT MATT" + X mark, intended.
+Geometry (`fpm-layouts.js`, I2): frame opening measured over the full loop = x 37..1882,
+y 82-87..1042, corner radius ~25 (page units; 4K = 2x). `FRAME_OPENING` uses the worst-case top
+(87); `SAFE` = opening inset by `FRAME_PAD` 16 = **x 53, y 103, w 1814, h 924** (4K x106 y206
+w3628 h1848); 16 also clears the rounded corners. `STAGE_BAND` = SAFE (+gap 15), so EVERY Onstage
+layout sits inside it: solo = the whole SAFE rect (no longer full canvas); grids n=2..9 as before
+inside SAFE; share <=3 = share [53,103,1274,924] + column x 1342 w 525 (`SHARE_COL`, flush right);
+share >3 = row above + full-width share; graphic = panel [53,103,744,924] + people right of it
+(n=1 tile [812,103,1055,924], 4K x1624 y206 w2110 h1848); the camera transform (tiles[0] x2) follows.
+Name tags (x+14, bottom-44) are inside their tile, hence inside the opening. With the frame off
+the layouts are unchanged (canvas shows around the inset rect) — one geometry, frame on or off.
+Intro strip (Starting Soon, no frame) unchanged. Tests assert every rect + tag inside SAFE and
+clear of the corner radius.

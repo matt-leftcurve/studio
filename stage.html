@@ -33,8 +33,8 @@
 // and guests. The cast (onstage guests, ordered, Matt implicit first) arrives via ?cast=<JSON
 // [[id,name],...]>; layout = fpmLayouts.gridLayout / shareLayout over people = 1 + cast.length.
 // Share is a STATE (sharer id via postMessage from people's pages, or detected from the share
-// streams in OBS), not a scene. Tile frames + name tags are drawn HERE for any cast size; the band
-// art (logo/bands/ticker/social) is the single retro-solo overlay. Legacy g1/g2/h/n URLs still
+// streams in OBS), not a scene. Tile frames + name tags are drawn HERE for any cast size; there is
+// no band art any more (2026-11-27) — the lacquer frame is an OBS source above Stage. Legacy g1/g2/h/n URLs still
 // render (mapped to a cast) during migration. Cast changes arrive as a new URL (the host page
 // rewrites the OBS input URL / people's pages reload the iframe) — reconnect-on-change, by design.
 (function () {
@@ -122,12 +122,10 @@
 		shareFrames[sid] = f;
 	});
 
-	// overlays: band art always (retro-solo = logo/bands/ticker/social), intro art for the intro layout
+	// overlays: intro art for the intro layout only. 2026-11-27: the Onstage band art (retro-solo:
+	// top/bottom bands, 马特老师 lockup, ticker, social handles) is gone; the lacquer frame is an OBS
+	// source above Stage and every Onstage layout fits its opening (fpmLayouts.SAFE, SPEC §9.4).
 	function ovSrc(p) { return p + "?b=" + encodeURIComponent(BUILD); }
-	var bandOv = document.createElement("iframe");
-	bandOv.className = "overlay";
-	bandOv.src = ovSrc("stage/retro-solo.html");
-	stage.appendChild(bandOv);
 	var introOv = document.createElement("iframe");
 	introOv.className = "overlay";
 	introOv.src = ovSrc("stage/intro.html");
@@ -166,7 +164,7 @@
 		} else {
 			rects = LGEO.gridLayout(n);
 		}
-		var soloFull = !intro && !sharer && !gfx && n === 1; // full-canvas solo: no tile frame/tag (classic Solo look)
+		var soloFull = !intro && !sharer && !gfx && n === 1; // solo (frame-safe rect): no tile frame/tag, the lacquer frame is the border
 		people.forEach(function (p, i) {
 			place(panels[i], rects[i], true);
 			panels[i].style.zIndex = intro ? "20" : "";
@@ -188,7 +186,6 @@
 		} else {
 			sharePanel.style.display = "none";
 		}
-		bandOv.style.display = intro ? "none" : "block";
 		introOv.style.display = intro ? "block" : "none";
 		document.title = "longshortmatt stage · " + (intro ? "intro" : sharer ? "share" : gfx ? "graphic" : "grid") + " · " + n;
 	}
