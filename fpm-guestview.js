@@ -66,6 +66,7 @@
 		var n = 1 + ((state && state.cast) ? state.cast.length : 0);
 		if (state && state.layout === "intro") return LGEO.introStrip(n);
 		if (state && state.sharer) return LGEO.shareLayout(n).tiles;
+		if (state && state.gfx) return LGEO.graphicLayout(n).tiles;
 		return LGEO.gridLayout(n);
 	}
 
@@ -110,7 +111,7 @@
 			var bm = document.querySelector('meta[name="fpm-build"]');
 			hostStage.src = "./stage.html?" + hk + "&b=" + encodeURIComponent(bm ? bm.content : Date.now());
 		}
-		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: state.layout === "intro" ? "intro" : "onstage", sharer: state.sharer || "" } }, "*"); } catch (e) {}
+		try { hostStage.contentWindow.postMessage({ fpmStage: { layout: state.layout === "intro" ? "intro" : "onstage", sharer: state.sharer || "", gfx: !!state.gfx } }, "*"); } catch (e) {}
 
 		var idx = myIndex();
 		var rects = myRects();

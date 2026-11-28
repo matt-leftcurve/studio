@@ -86,6 +86,43 @@
 		for (var j = 0; j < n; j++) { tiles.push([Math.round(x), STAGE_BAND.top, Math.round(tw), th]); x += tw + STAGE_BAND.gap; }
 		return { share: [0, STAGE_BAND.top + th + STAGE_BAND.gap, STAGE_BAND.w, STAGE_BAND.h - th - STAGE_BAND.gap], tiles: tiles };
 	}
+	// ===== Live graphics (2026-11-27, off-air prototype; SPEC §9.3) =====
+	// A graphic panel on the LEFT of the stage band (same idea as the portrait iPhone share); Matt
+	// (tiles[0]) + onstage guests pack into the remaining width as 16:9 tiles, 1-3 rows, whichever
+	// gives the biggest tiles. n=1: Matt fills everything right of the panel.
+	var GFX_PANEL_W = 744; // 4:5 card at the band height (930): room for a chart, camera stays big
+	function inscribe169(cw, ch) {
+		if (cw * 9 >= ch * 16) return { w: Math.round(ch * 16 / 9), h: ch };
+		return { w: cw, h: Math.round(cw * 9 / 16) };
+	}
+	function panelLayout(n, panelW) {
+		n = Math.max(1, Math.min(9, n));
+		var B = STAGE_BAND, panel = [0, B.top, panelW, B.h];
+		var x0 = panelW + B.gap, W = B.w - x0, H = B.h, gap = B.gap;
+		if (n === 1) return { panel: panel, tiles: [[x0, B.top, W, H]] };
+		var best = null;
+		for (var rows = 1; rows <= Math.min(n, 3); rows++) {
+			var split = [], base = Math.floor(n / rows), extra = n % rows;
+			for (var r = 0; r < rows; r++) split.push(base + (r < extra ? 1 : 0));
+			var cols = Math.max.apply(null, split);
+			var cw = (W - gap * (cols - 1)) / cols, ch = (H - gap * (rows - 1)) / rows;
+			var ins = inscribe169(cw, ch), area = ins.w * ins.h;
+			if (!best || area > best.area) best = { split: split, cw: cw, ch: ch, area: area };
+		}
+		var tiles = [], tot = best.split.length * best.ch + (best.split.length - 1) * gap;
+		var y = B.top + (H - tot) / 2;
+		for (var r2 = 0; r2 < best.split.length; r2++) {
+			var cnt = best.split[r2], x = x0 + (W - (cnt * best.cw + (cnt - 1) * gap)) / 2;
+			for (var i = 0; i < cnt; i++) {
+				var i2 = inscribe169(best.cw, best.ch);
+				tiles.push([Math.round(x + (best.cw - i2.w) / 2), Math.round(y + (best.ch - i2.h) / 2), i2.w, i2.h]);
+				x += best.cw + gap;
+			}
+			y += best.ch + gap;
+		}
+		return { panel: panel, tiles: tiles };
+	}
+	function graphicLayout(n) { return panelLayout(n, GFX_PANEL_W); }
 	// intro strip: everyone in one small bottom row, centered (Starting Soon tile strip)
 	function introStrip(n) {
 		n = Math.max(1, Math.min(9, n));
@@ -96,7 +133,7 @@
 		for (var i = 0; i < n; i++) out.push([x0 + i * (tw + 15), 1080 - th - 80, tw, th]);
 		return out;
 	}
-	var api = { PANELS: PANELS, OVERLAYS: OVERLAYS, SHARE_COL: SHARE_COL, shareSlots: shareSlots, camBounds: camBounds, TAG_INSET: TAG_INSET, STAGE_BAND: STAGE_BAND, gridLayout: gridLayout, shareLayout: shareLayout, rowSplit: rowSplit, introStrip: introStrip };
+	var api = { PANELS: PANELS, OVERLAYS: OVERLAYS, SHARE_COL: SHARE_COL, shareSlots: shareSlots, camBounds: camBounds, TAG_INSET: TAG_INSET, STAGE_BAND: STAGE_BAND, gridLayout: gridLayout, shareLayout: shareLayout, rowSplit: rowSplit, introStrip: introStrip, GFX_PANEL_W: GFX_PANEL_W, panelLayout: panelLayout, graphicLayout: graphicLayout };
 	if (typeof module !== "undefined" && module.exports) module.exports = api;
 	root.fpmLayouts = api;
 })(typeof window !== "undefined" ? window : this);

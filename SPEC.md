@@ -227,3 +227,15 @@ the instant postMessage path. Pixel-inference of share state is now BANNED by th
 share state has exactly one writer, the host page).
 Remaining real-guest-only items (unchanged): backstage strip live video, Bring Onstage / Send
 Backstage clicks, guest view v2, guest-side share, admit-reload timing, Drive ISO proof.
+
+### 9.3 Live graphics (off-air prototype), 2026-11-27
+While Matt talks, `livegfx/server.py` (THE_EQUALIZER) follows the caption bridge's log
+(`/tmp/live-subtitles.log`, read-only; never the mic fifo), spots tickers / levels / comparisons /
+timeframes (`livegfx/detect.py`, rules, no model), builds a chart card from real market data
+(`livegfx/market.py`: Binance public data / Coinbase, Yahoo / Stooq) and QUEUES it. Nothing airs
+without Matt's tap. Host-only **📊 graphics** button (only with `&livegfx=<server origin>`; off by
+default) opens the queue as a popup; AIR/OFF there posts `{fpmGfx:{on}}` to the host page, which
+sets `gfx=1` in the Stage URL + `gfx` on the `fpmStage` broadcast (host page stays the single
+writer). Stage geometry: `graphicLayout(n)` in `fpm-layouts.js`: 744x930 graphic panel on the left
+of the band, people packed right as 16:9 tiles. The card itself is the OBS browser source
+`<server>/onair` (transparent except the panel). Share wins over a graphic.

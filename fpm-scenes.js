@@ -22,6 +22,9 @@
 	var CAM_SOURCE = params.get("camsource") || "Osmo Pocket 4";
 	var MIC = params.get("micinput") || "Mic/Aux";
 	var MUSIC_INPUT = params.get("musicinput") || "Intro Music";
+	// Live graphics (off-air prototype, SPEC §9.3): OFF unless &livegfx=<queue server origin>.
+	var LIVEGFX = (params.get("livegfx") || "").replace(/\/+$/, "");
+	var gfxOn = false; // a graphic is on air (told by the queue popup); share wins over it
 
 	// ---------- toolbar ----------
 	var bar = document.createElement("div");
@@ -106,6 +109,16 @@
 		var u;
 		try { u = new URL(stageUrl); } catch (e) { return; }
 		if (sid) u.searchParams.set("sharer", sid); else u.searchParams.delete("sharer");
+		if (gfxOn && !sid) u.searchParams.set("gfx", "1"); else u.searchParams.delete("gfx");
+		stageUrl = u.toString();
+		send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
+	}
+	function setStageGfx() {
+		if (!stageUrl) return;
+		var u;
+		try { u = new URL(stageUrl); } catch (e) { return; }
+		if (gfxOn && !sharing) u.searchParams.set("gfx", "1"); else u.searchParams.delete("gfx");
+		if (u.toString() === stageUrl) return;
 		stageUrl = u.toString();
 		send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
 	}
@@ -117,7 +130,7 @@
 	// ---------- broadcast ----------
 	function broadcast() {
 		if (!window.session || typeof session.sendGenericData !== "function" || !current) return;
-		var st = { scene: current, layout: layoutFor(current), cast: cast, sharer: sharing || "", music: musicId };
+		var st = { scene: current, layout: layoutFor(current), cast: cast, sharer: sharing || "", music: musicId, gfx: !!(gfxOn && !sharing) };
 		try { session.sendGenericData({ fpmStage: st }); } catch (e) {}
 		try { if (window.fpmGuestView && window.fpmGuestView.set) window.fpmGuestView.set(st); } catch (e) {}
 	}
@@ -143,8 +156,9 @@
 	function camApply() {
 		if (!ws || ws.readyState !== 1 || !camItemId || !window.fpmLayouts) return;
 		var n = 1 + cast.length;
-		var r = sharing ? fpmLayouts.shareLayout(n).tiles[0] : fpmLayouts.gridLayout(n)[0];
-		var key = (sharing ? "s" : "g") + r.join(",");
+		var useGfx = gfxOn && !sharing;
+		var r = sharing ? fpmLayouts.shareLayout(n).tiles[0] : useGfx ? fpmLayouts.graphicLayout(n).tiles[0] : fpmLayouts.gridLayout(n)[0];
+		var key = (sharing ? "s" : useGfx ? "x" : "g") + r.join(",");
 		if (key === camLastKey) return;
 		camLastKey = key;
 		send("SetSceneItemTransform", { sceneName: ONSTAGE_SCENE, sceneItemId: camItemId, sceneItemTransform: {
@@ -315,6 +329,32 @@
 	seatBox.appendChild(seatText);
 	seatBox.appendChild(autoLab);
 	seatBox.appendChild(shareBtn);
+	if (LIVEGFX) {
+		// host-only (this whole file is host-only): opens the live-graphics queue; the queue tells us
+		// when a graphic goes on/off air and we reflow the stage (we stay the only Stage URL writer)
+		var gfxBtn = document.createElement("button"), gfxWin = null;
+		gfxBtn.type = "button";
+		gfxBtn.style.cssText = shareBtn.style.cssText;
+		gfxBtn.onclick = function () {
+			if (gfxWin && !gfxWin.closed) { gfxWin.focus(); return; }
+			gfxWin = window.open(LIVEGFX + "/queue", "fpmLiveGfx", "width=520,height=980");
+		};
+		var gfxOrigin = "";
+		try { gfxOrigin = new URL(LIVEGFX).origin; } catch (e) {}
+		window.addEventListener("message", function (e) {
+			if (!e.data || !e.data.fpmGfx || e.origin !== gfxOrigin) return;
+			var on = !!e.data.fpmGfx.on;
+			if (on !== gfxOn) { gfxOn = on; setStageGfx(); broadcast(); camApply(); }
+			try { e.source.postMessage({ fpmGfxAck: { on: gfxOn, sharing: !!sharing } }, e.origin); } catch (x) {}
+		});
+		setInterval(function () {
+			var open = gfxWin && !gfxWin.closed;
+			gfxBtn.textContent = gfxOn ? "📊 graphic ON AIR" : open ? "📊 graphics (open)" : "📊 graphics";
+			gfxBtn.style.background = gfxOn ? "#e5484d" : "#2a3140";
+			gfxBtn.style.color = gfxOn ? "#fff" : "#d7dbe3";
+		}, 500);
+		seatBox.appendChild(gfxBtn);
+	}
 	function renderStatusText() {
 		seatText.textContent = "Onstage: " + cast.length + "/8 · Backstage: " + Object.keys(stripTiles).length;
 		if (!seatBox.isConnected && bar.isConnected) bar.appendChild(seatBox);
@@ -432,6 +472,12 @@
 						renderStatusText();
 						hoverRender();
 						camApply();
+						if (sp.get("gfx") && !gfxOn) {
+							var ug = new URL(stageUrl);
+							ug.searchParams.delete("gfx");
+							stageUrl = ug.toString();
+							send("SetInputSettings", { inputName: STAGE_INPUT, inputSettings: { url: stageUrl } });
+						}
 						// BUILD SYNC: force OBS onto this page's build
 						var bm0 = document.querySelector('meta[name="fpm-build"]');
 						if (bm0 && bm0.content && sp.get("b") !== bm0.content) {

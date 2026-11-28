@@ -140,6 +140,10 @@
 	// get it instantly via postMessage from their page.
 	var sharer = q.get("sharer") || "";
 	var sharerHint = null;
+	// Live graphic on air (?gfx=1 from the host page, or fpmStage.gfx): people move right of the
+	// graphic panel (fpmLayouts.graphicLayout); the graphic itself is its own OBS source. Share wins.
+	var gfx = q.get("gfx") === "1";
+	var gfxHint = null;
 
 	function place(el, r, show) {
 		el.style.display = show ? "block" : "none";
@@ -157,10 +161,12 @@
 		} else if (sharer) {
 			var sl = LGEO.shareLayout(n);
 			rects = sl.tiles; shareRect = sl.share;
+		} else if (gfx) {
+			rects = LGEO.graphicLayout(n).tiles;
 		} else {
 			rects = LGEO.gridLayout(n);
 		}
-		var soloFull = !intro && !sharer && n === 1; // full-canvas solo: no tile frame/tag (classic Solo look)
+		var soloFull = !intro && !sharer && !gfx && n === 1; // full-canvas solo: no tile frame/tag (classic Solo look)
 		people.forEach(function (p, i) {
 			place(panels[i], rects[i], true);
 			panels[i].style.zIndex = intro ? "20" : "";
@@ -184,7 +190,7 @@
 		}
 		bandOv.style.display = intro ? "none" : "block";
 		introOv.style.display = intro ? "block" : "none";
-		document.title = "longshortmatt stage · " + (intro ? "intro" : sharer ? "share" : "grid") + " · " + n;
+		document.title = "longshortmatt stage · " + (intro ? "intro" : sharer ? "share" : gfx ? "graphic" : "grid") + " · " + n;
 	}
 
 	function setLayout(name) {
@@ -202,6 +208,7 @@
 
 	setLayout(q.get("layout") === "intro" ? "intro" : "onstage");
 	setInterval(function () {
+		if (gfxHint !== null && gfxHint !== gfx) { gfx = gfxHint; apply(); }
 		if (sharerHint === null) return; // OBS: URL is the only truth
 		if (sharerHint !== sharer) { sharer = sharerHint; apply(); }
 	}, 300);
@@ -214,6 +221,7 @@
 		var d = ev.data;
 		if (!d || !d.fpmStage) return;
 		if ("sharer" in d.fpmStage) sharerHint = d.fpmStage.sharer || "";
+		if ("gfx" in d.fpmStage) gfxHint = !!d.fpmStage.gfx;
 		if (d.fpmStage.layout) setLayout(d.fpmStage.layout === "intro" ? "intro" : "onstage");
 		apply();
 	});

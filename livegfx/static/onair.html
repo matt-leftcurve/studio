@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>live graphic · on air</title>
+<style>
+	html, body { margin: 0; background: transparent; overflow: hidden; }
+	#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+	#panel { position: absolute; opacity: 0; transform: translateX(-24px); transition: opacity .35s ease, transform .35s ease; }
+	#panel.on { opacity: 1; transform: none; }
+</style></head>
+<body><div id="stage"><div id="panel"></div></div>
+<script src="/fpm-layouts.js"></script>
+<script src="/static/card.js"></script>
+<script>
+// OBS browser source (1920x1080, or any 16:9 size: it scales). Transparent except the graphic
+// panel, which sits in fpmLayouts.graphicLayout(...).panel — the stage moves people out of it
+// when the host page sets gfx=1. Shows ONLY what Matt put on air from the queue.
+(function () {
+	var panel = document.getElementById("panel"), stage = document.getElementById("stage"), shown = "";
+	var r = fpmLayouts.graphicLayout(1).panel;
+	panel.style.left = r[0] + "px"; panel.style.top = r[1] + "px"; panel.style.width = r[2] + "px"; panel.style.height = r[3] + "px";
+	function apply(st) {
+		var c = st.onair;
+		if (!c) { panel.classList.remove("on"); shown = ""; return; }
+		if (c.id + c.t_air !== shown) { panel.innerHTML = fpmCard.render(c); shown = c.id + c.t_air; }
+		panel.classList.add("on");
+	}
+	function connect() {
+		if (/[?&]once\b/.test(location.search)) { fetch("/api/state").then(function (r) { return r.json(); }).then(apply); return; } // screenshots/tests
+		var es = new EventSource("/api/events");
+		es.onmessage = function (e) { try { apply(JSON.parse(e.data)); } catch (x) {} };
+		es.onerror = function () { es.close(); setTimeout(connect, 2000); };
+	}
+	connect();
+	function fit() { var s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = "scale(" + s + ")"; }
+	addEventListener("resize", fit); fit();
+})();
+</script></body></html>

@@ -1,0 +1,6 @@
+# one utterance per line: English || Chinese (either side may be empty). Replayed with --replay.
+OK so let's talk about Bitcoin versus gold since the halving || 我们来聊聊减半以来比特币和黄金的对比
+and ETH broke 3,000 earlier this week || 以太坊这周早些时候突破了3000
+thanks everyone for joining tonight || 谢谢大家今晚来
+Solana has been ripping this month || 索拉纳这个月涨了很多
+|| 大饼跌破9万的话要小心

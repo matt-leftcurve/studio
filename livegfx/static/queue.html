@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live graphics · queue</title>
+<style>
+	:root { color-scheme: dark; }
+	body { margin: 0; background: #0b0e13; color: #d7dbe3; font: 500 14px/1.35 system-ui, -apple-system, sans-serif; }
+	header { position: sticky; top: 0; z-index: 5; background: rgba(11,14,19,.96); padding: 12px 14px 10px; border-bottom: 1px solid #1d2330; }
+	h1 { margin: 0 0 6px; font-size: 16px; letter-spacing: .5px; display: flex; gap: 8px; align-items: center; }
+	.pill { font-size: 11px; padding: 3px 7px; border-radius: 99px; background: #2a3140; color: #9ab; font-weight: 700; }
+	.pill.ok { background: #12372f; color: #7fd4c1; } .pill.bad { background: #3a1719; color: #ff8a8d; }
+	#onair { margin-top: 8px; display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: #151a23; }
+	#onair.live { background: #3a1214; box-shadow: inset 0 0 0 2px #e5484d; }
+	#onair .t { flex: 1; font-weight: 700; }
+	button { border: 0; border-radius: 9px; padding: 9px 14px; font: 700 14px system-ui; cursor: pointer; background: #2a3140; color: #d7dbe3; }
+	button.air { background: #e5484d; color: #fff; min-width: 86px; }
+	button.air.isOn { background: #6b1f22; }
+	button.x { background: transparent; color: #6b7482; padding: 9px 10px; }
+	form { display: flex; gap: 6px; margin-top: 8px; }
+	input { flex: 1; background: #151a23; border: 1px solid #2a3140; color: #d7dbe3; border-radius: 9px; padding: 9px 10px; font: inherit; }
+	#heard { margin: 8px 0 0; font-size: 12px; color: #6b7482; max-height: 3.9em; overflow: hidden; }
+	#heard b { color: #9aa4b2; font-weight: 600; }
+	main { padding: 10px 12px 40px; display: grid; gap: 10px; }
+	.card { display: grid; grid-template-columns: 132px 1fr; gap: 12px; padding: 10px; border-radius: 12px; background: #121721; border: 1px solid #1d2330; }
+	.card.new { animation: pop 1.2s ease; } @keyframes pop { from { background: #1f3a33; } }
+	.card.live { border-color: #e5484d; }
+	.thumb { width: 132px; height: 165px; border-radius: 8px; overflow: hidden; background: #000; }
+	.meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+	.meta .ttl { font-size: 16px; font-weight: 800; color: #f4f1ea; }
+	.meta .hl { color: #c9ced6; }
+	.meta .q { color: #6b7482; font-style: italic; font-size: 12px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+	.meta .tags { font-size: 11px; color: #5d6675; } .meta .tags span { margin-right: 8px; }
+	.meta .row { margin-top: auto; display: flex; gap: 6px; align-items: center; }
+	.empty { color: #5d6675; text-align: center; padding: 30px 10px; }
+</style></head>
+<body>
+<header>
+	<h1>📊 Live graphics <span class="pill">OFF-AIR PROTOTYPE</span></h1>
+	<div style="display:flex;gap:6px;flex-wrap:wrap">
+		<span id="cap" class="pill">captions: …</span><span id="host" class="pill">host page: …</span><span id="lat" class="pill">latency: –</span>
+	</div>
+	<div id="onair"><span class="t">Nothing on air</span><button id="offbtn" style="display:none">Take off air</button></div>
+	<form id="topic"><input id="topicin" placeholder="Type a topic, e.g. “ETH vs SOL this month”" autocomplete="off"><button>Make</button></form>
+	<div id="heard"></div>
+</header>
+<main id="list"><div class="empty">Listening… cards appear here when you mention a ticker, a level, a comparison or a timeframe.</div></main>
+<script src="/static/card.js"></script>
+<script>
+(function () {
+	"use strict";
+	var list = document.getElementById("list"), known = {}, state = null, lastGfxSent = null;
+	function post(path, body) { return fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); }); }
+	// Host page link: this queue is opened BY the host page (📊 button), so window.opener is the
+	// host page. Air/off also tells it to reflow the stage (gfx=1); it stays the single writer of
+	// the OBS Stage URL. Opened any other way, on-air still shows but the stage won't move.
+	var host = window.opener || null, hostAck = null;
+	window.addEventListener("message", function (e) { if (e.data && e.data.fpmGfxAck) { hostAck = e.data.fpmGfxAck; paintHost(); } });
+	function tellHost(on) {
+		if (lastGfxSent === on) return;
+		lastGfxSent = on;
+		try { if (host && !host.closed) host.postMessage({ fpmGfx: { on: on } }, "*"); } catch (e) {}
+	}
+	function paintHost() {
+		var el = document.getElementById("host");
+		if (!host || host.closed) { el.className = "pill bad"; el.textContent = "host page: not linked (stage won't reflow)"; return; }
+		if (hostAck && hostAck.sharing) { el.className = "pill bad"; el.textContent = "host page: screen share active (share wins)"; return; }
+		el.className = "pill ok"; el.textContent = "host page: linked" + (hostAck ? (hostAck.on ? " · layout ON" : " · layout off") : "");
+	}
+	setInterval(paintHost, 1000);
+	function ago(t) { var s = Math.round(Date.now() / 1000 - t); return s < 60 ? s + "s ago" : Math.round(s / 60) + "m ago"; }
+	function paint(st) {
+		state = st;
+		var cap = document.getElementById("cap");
+		if (!st.status.tail) { cap.className = "pill"; cap.textContent = "captions: not tailing"; }
+		else if (st.status.tail_last) { cap.className = "pill ok"; cap.textContent = "captions: last line " + ago(st.status.tail_last); }
+		else { cap.className = "pill bad"; cap.textContent = "captions: waiting for bridge"; }
+		var L = st.latency.filter(function (x) { return !x.preloaded; }).slice(-10).map(function (x) { return x.ms; });
+		document.getElementById("lat").textContent = L.length ? "build: median " + L.sort(function (a, b) { return a - b; })[L.length >> 1] + " ms" : "latency: –";
+		var oa = document.getElementById("onair");
+		oa.className = st.onair ? "live" : "";
+		oa.querySelector(".t").textContent = st.onair ? "ON AIR: " + st.onair.title + " · " + st.onair.subtitle : "Nothing on air";
+		document.getElementById("offbtn").style.display = st.onair ? "" : "none";
+		tellHost(!!st.onair);
+		document.getElementById("heard").innerHTML = st.heard.slice(-3).reverse().map(function (h) {
+			return "<div><b>" + new Date(h.t * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b> " + (h.en || h.zh).replace(/</g, "&lt;") + "</div>";
+		}).join("");
+		if (!st.queue.length) { list.innerHTML = '<div class="empty">Listening… cards appear here when you mention a ticker, a level, a comparison or a timeframe.</div>'; known = {}; return; }
+		var html = "";
+		st.queue.forEach(function (c) {
+			var live = st.onair && st.onair.id === c.id;
+			var lat = c.preloaded && !c.heard ? "ready" : c.t_ready && c.t_heard ? ((c.t_ready - c.t_heard) * 1000).toFixed(0) + " ms" : "";
+			html += '<div class="card' + (known[c.id] ? "" : " new") + (live ? " live" : "") + '" data-id="' + c.id + '">' +
+				'<div class="thumb">' + fpmCard.render(c) + '</div><div class="meta">' +
+				'<div class="ttl">' + c.title.replace(/</g, "&lt;") + '</div><div class="hl">' + c.headline.replace(/</g, "&lt;") + '</div>' +
+				'<div class="q">“' + (c.quote || "").replace(/</g, "&lt;") + '”</div>' +
+				'<div class="tags"><span>' + c.subtitle + '</span><span>' + (c.preloaded ? (c.heard ? "pre-loaded · heard" : "pre-loaded") : c.origin) + '</span><span>' + lat + '</span></div>' +
+				'<div class="row"><button class="air' + (live ? " isOn" : "") + '" data-act="' + (live ? "off" : "air") + '">' + (live ? "■ OFF" : "AIR") + '</button><button class="x" data-act="x" title="Dismiss">✕</button></div>' +
+				'</div></div>';
+		});
+		list.innerHTML = html;
+		known = {}; st.queue.forEach(function (c) { known[c.id] = 1; });
+	}
+	list.addEventListener("click", function (e) {
+		var b = e.target.closest("button"); if (!b) return;
+		var id = b.closest(".card").getAttribute("data-id"), act = b.getAttribute("data-act");
+		if (act === "air") post("/api/air", { id: id });
+		else if (act === "off") post("/api/off");
+		else post("/api/dismiss", { id: id });
+	});
+	document.getElementById("offbtn").onclick = function () { post("/api/off"); };
+	document.getElementById("topic").onsubmit = function (e) {
+		e.preventDefault(); var v = document.getElementById("topicin").value.trim(); if (!v) return;
+		post("/api/topic", { text: v }).then(function (r) { if (!r.made.length) alert("No chart for that (no ticker / level / timeframe recognized, or no data)."); });
+		document.getElementById("topicin").value = "";
+	};
+	function connect() {
+		if (/[?&]once\b/.test(location.search)) { fetch("/api/state").then(function (r) { return r.json(); }).then(paint); return; } // screenshots/tests
+		var es = new EventSource("/api/events");
+		es.onmessage = function (e) { try { paint(JSON.parse(e.data)); } catch (x) { console.error(x); } };
+		es.onerror = function () { es.close(); setTimeout(connect, 2000); };
+	}
+	connect();
+	setInterval(function () { if (state) paint(state); }, 5000); // refresh "x s ago"
+	addEventListener("beforeunload", function () { /* leaving the queue doesn't pull the graphic; host keeps last state */ });
+})();
+</script></body></html>

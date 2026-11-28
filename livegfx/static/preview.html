@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>live graphic · layout preview</title>
+<style>
+	html, body { margin: 0; background: #000; overflow: hidden; }
+	#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: #05070a; }
+	.tile { position: absolute; overflow: hidden; background: #0e1a2b; box-sizing: border-box; }
+	.tile img { width: 100%; height: 100%; object-fit: cover; }
+	.frame { position: absolute; box-sizing: border-box; border: 2px solid rgba(201,161,95,0.45); pointer-events: none; }
+	.tag { position: absolute; background: rgba(10,22,30,0.88); border: 2px solid rgba(201,161,95,0.55); border-radius: 6px;
+		padding: 5px 12px; color: #9fe0d0; font: 700 19px "Helvetica Neue",Helvetica,Arial,sans-serif; letter-spacing: 1px; }
+	.guest { display: flex; align-items: center; justify-content: center; color: #3c4a5e; font: 700 40px system-ui; }
+	#panel { position: absolute; }
+	#note { position: absolute; right: 16px; bottom: 10px; color: #3c4656; font: 600 14px system-ui; }
+</style></head>
+<body><div id="stage"><div id="panel"></div><div id="note">layout preview · not the live stage</div></div>
+<script src="/fpm-layouts.js"></script>
+<script src="/static/card.js"></script>
+<script>
+// Composite mock of the Onstage view with a graphic on air: graphicLayout(n) tiles (Matt's photo
+// stands in for the camera, numbered boxes for guests) + the on-air card. ?guests=0..8 · ?id=<card>
+(function () {
+	var q = new URLSearchParams(location.search), g = Math.max(0, Math.min(8, +(q.get("guests") || 0)));
+	var stage = document.getElementById("stage"), L = fpmLayouts.graphicLayout(1 + g);
+	var p = document.getElementById("panel");
+	p.style.left = L.panel[0] + "px"; p.style.top = L.panel[1] + "px"; p.style.width = L.panel[2] + "px"; p.style.height = L.panel[3] + "px";
+	L.tiles.forEach(function (r, i) {
+		var t = document.createElement("div"); t.className = "tile" + (i ? " guest" : "");
+		t.style.cssText += "left:" + r[0] + "px;top:" + r[1] + "px;width:" + r[2] + "px;height:" + r[3] + "px";
+		if (i === 0) t.innerHTML = '<img src="/repo/stage/matt-photo.jpg">'; else t.textContent = "Guest " + i;
+		stage.appendChild(t);
+		var f = document.createElement("div"); f.className = "frame"; f.style.cssText = t.style.cssText; stage.appendChild(f);
+		var tg = document.createElement("div"); tg.className = "tag"; tg.textContent = i ? "GUEST " + i : "MATT";
+		tg.style.left = (r[0] + 14) + "px"; tg.style.top = (r[1] + r[3] - 44) + "px"; stage.appendChild(tg);
+	});
+	fetch("/api/state").then(function (r) { return r.json(); }).then(function (st) {
+		var c = st.onair; var id = q.get("id");
+		if (id) c = st.queue.filter(function (x) { return x.id === id; })[0] || c;
+		if (!c) c = st.queue[0];
+		if (c) p.innerHTML = fpmCard.render(c);
+		document.title = "preview ready";
+	});
+	function fit() { var s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = "scale(" + s + ")"; }
+	addEventListener("resize", fit); fit();
+})();
+</script></body></html>
