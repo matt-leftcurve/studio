@@ -35,6 +35,8 @@ _a("BNB", "BNB", "crypto", "BNB", ["bnb", "binance coin"], ["币安币"])
 _a("LINK", "Chainlink", "crypto", "LINK", ["chainlink"], [])
 _a("AVAX", "Avalanche", "crypto", "AVAX", ["avalanche", "avax"], [])
 _a("SUI", "Sui", "crypto", "SUI", ["sui"], [])
+_a("NEAR", "NEAR", "crypto", "NEAR", ["near protocol", "near"], [])  # on Bender's whisper prompt lineup
+_a("ZEC", "Zcash", "crypto", "ZEC", ["zcash", "zec"], ["大零币"])
 _a("GOLD", "Gold", "yahoo", "GC=F", ["gold", "xau", "xauusd"], ["黄金", "金价"])
 _a("SILVER", "Silver", "yahoo", "SI=F", ["silver", "xag"], ["白银"])
 _a("OIL", "Crude oil", "yahoo", "CL=F", ["crude", "oil", "wti"], ["原油", "油价"])
@@ -63,7 +65,7 @@ ASSETS["AMD"]["aliases"] = ["amd"]
 
 # words that collide with ordinary speech: only count them as tickers when cashtagged or uppercase
 _AMBIGUOUS = {"sol", "link", "sui", "coin", "meta", "tens", "oil", "gold", "spy", "the dollar"}
-_AMBIG_NEEDS_CTX = {"sol", "sui", "tens", "spy"}  # need $TAG or UPPER in the original text
+_AMBIG_NEEDS_CTX = {"sol", "sui", "tens", "spy", "near"}  # need $TAG or UPPER in the original text
 
 _alias_index: list[tuple[str, str]] = []
 for _k, _v in ASSETS.items():
